@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"github.com/gorilla/mux"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/kyrstenkelly/rsvp-api/db"
 	"log"
 	"net/http"
 )
@@ -66,8 +68,9 @@ func DeleteGuest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(guests)
 }
 
-// our main function
 func main() {
+	db.Initialize()
+
 	var ourAddress = &Address{
 		Line1: "7009 Almeda Rd #633",
 		Zip:   "77054",
