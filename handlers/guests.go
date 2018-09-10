@@ -2,76 +2,97 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/go-pg/pg"
 	"github.com/gorilla/mux"
+	"github.com/kyrstenkelly/rsvp-api/db"
+	"github.com/kyrstenkelly/rsvp-api/db/access"
+	"github.com/kyrstenkelly/rsvp-api/db/models"
+	"github.com/kyrstenkelly/rsvp-api/utils"
+	log "github.com/sirupsen/logrus"
 	"net/http"
+	"strconv"
 )
 
-// Guest type
-type Guest struct {
-	ID        string   `json:"id,omitempty"`
-	Firstname string   `json:"firstname,omitempty"`
-	Lastname  string   `json:"lastname,omitempty"`
-	Email     string   `json:"email,omitempty"`
-	Address   *Address `json:"address,omitempty"`
+// GuestsHandler type
+type GuestsHandler struct {
+	dao access.GuestsAccess
 }
 
-// Address type
-type Address struct {
-	Line1 string `json:"line1,omitempty"`
-	Line2 string `json:"line2,omitempty"`
-	Zip   string `json:"zip,omitempty"`
-	City  string `json:"city,omitempty"`
-	State string `json:"state,omitempty"`
+// NewGuestsHandler creates a new handler with the given dao
+func NewGuestsHandler(dao access.GuestsAccess) *GuestsHandler {
+	return &GuestsHandler{dao: dao}
 }
 
-var guests []Guest
+// GetGuestsHandler gets a list of all guests
+func (handler *GuestsHandler) GetGuestsHandler(r *http.Request) ([]byte, int, error) {
+	log.Info("Getting all guests")
+	// conn := db.GetDBConn()
 
-// GetGuests gets guests
-func GetGuests(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(guests)
+	// var guests []models.Guest
+	// err := dao.Model(&guests).Select()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// json.NewEncoder(w).Encode(guests)
+	return nil, 0, nil
 }
 
-// GetGuest gets a guest
-func GetGuest(w http.ResponseWriter, r *http.Request) {
+// GetGuestHandler gets an guest by id
+func (handler *GuestsHandler) GetGuestHandler(r *http.Request) ([]byte, int, error) {
+	conn := db.GetDBConn()
+
 	params := mux.Vars(r)
-	var guest Guest
-	for _, item := range guests {
-		if item.ID == params["id"] {
-			guest = item
-		}
+	id, _ := strconv.ParseInt(params["id"], 10, 64)
+	log.WithFields(log.Fields{
+		"id": id,
+	}).Info("Getting guest by ID")
+
+	var guest *models.Guest
+	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
+		guest, err = handler.dao.GetGuest(tx, id)
+		return err
+	})
+	if err != nil {
+		log.Error("Error getting guest")
+		return nil, http.StatusInternalServerError, err
 	}
-	json.NewEncoder(w).Encode(guest)
+	return utils.SerializeResponse(guest, http.StatusOK)
 }
 
-// CreateGuest creates a guest
-func CreateGuest(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	var guest Guest
-	_ = json.NewDecoder(r.Body).Decode(&guest)
-	guest.ID = params["id"]
-	guests = append(guests, guest)
-	json.NewEncoder(w).Encode(guests)
+// CreateGuestHandler handles creating an guest
+func (handler *GuestsHandler) CreateGuestHandler(r *http.Request) ([]byte, int, error) {
+	conn := db.GetDBConn()
+
+	var guest *models.Guest
+	json.NewDecoder(r.Body).Decode(&guest)
+
+	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
+		_, err = handler.dao.CreateGuest(tx, guest)
+		return err
+	})
+	if err != nil {
+		log.Error("Error creating guest")
+		return nil, http.StatusInternalServerError, err
+	}
+
+	return utils.SerializeResponse(guest, http.StatusOK)
 }
 
-// DeleteGuest deletes a guest
-func DeleteGuest(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	for index, item := range guests {
-		if item.ID == params["id"] {
-			guests = append(guests[:index], guests[index+1:]...)
-			break
-		}
-	}
-	json.NewEncoder(w).Encode(guests)
+// UpdateGuestHandler updates an existing guest
+func (handler *GuestsHandler) UpdateGuestHandler(r *http.Request) ([]byte, int, error) {
+	// TODO
+	return nil, 0, nil
 }
 
-func main() {
-	var ourAddress = &Address{
-		Line1: "7009 Almeda Rd #633",
-		Zip:   "77054",
-		City:  "Houston",
-		State: "TX",
-	}
-	guests = append(guests, Guest{ID: "1", Firstname: "Kyrsten", Lastname: "Kelly", Email: "kyrsten.kelly@gmail.com", Address: ourAddress})
-	guests = append(guests, Guest{ID: "2", Firstname: "James", Lastname: "Custer", Email: "jamescuster0121@gmail.com", Address: ourAddress})
+// DeleteGuestHandler deletes an guest
+func (handler *GuestsHandler) DeleteGuestHandler(r *http.Request) ([]byte, int, error) {
+	// params := mux.Vars(r)
+	// for index, item := range guests {
+	// 	if item.ID == params["id"] {
+	// 		guests = append(guests[:index], guests[index+1:]...)
+	// 		break
+	// 	}
+	// }
+	// json.NewEncoder(w).Encode(guests)
+	return nil, 0, nil
 }
