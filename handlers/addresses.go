@@ -3,14 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"github.com/go-pg/pg"
-	"github.com/gorilla/mux"
 	"github.com/kyrstenkelly/rsvp-api/db"
 	"github.com/kyrstenkelly/rsvp-api/db/access"
 	"github.com/kyrstenkelly/rsvp-api/db/models"
 	"github.com/kyrstenkelly/rsvp-api/utils"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"strconv"
 )
 
 // AddressesHandler type
@@ -24,49 +22,42 @@ func NewAddressesHandler(dao access.AddressesAccess) *AddressesHandler {
 }
 
 // GetAddressesHandler gets a list of all addresses
-func (handler *AddressesHandler) GetAddressesHandler(r *http.Request) ([]byte, int, error) {
+func (handler *AddressesHandler) GetAddressesHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
 	log.Info("Getting all addresses")
-	// conn := db.GetDBConn()
+	conn := db.GetDBConn()
 
-	// var addresses []models.Address
-	// err := dao.Model(&addresses).Select()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// json.NewEncoder(w).Encode(addresses)
-	return nil, 0, nil
+	var addresses []models.Address
+	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
+		addresses, err = handler.dao.GetAddresses(tx)
+		return err
+	})
+	if err != nil {
+		log.Error("Error getting addresses")
+		return nil, http.StatusBadRequest, err
+	}
+	return utils.SerializeResponse(addresses, http.StatusOK)
 }
 
 // GetAddressHandler gets an address by id
-func (handler *AddressesHandler) GetAddressHandler(r *http.Request) ([]byte, int, error) {
-	conn := db.GetDBConn()
-	vars := mux.Vars(r)
-	id, _ := strconv.ParseInt(vars["id"], 10, 64)
+func (handler *AddressesHandler) GetAddressHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+	id := utils.GetIDFromVars(vars)
 
 	log.WithFields(log.Fields{
 		"id": id,
 	}).Info("Getting address by ID")
 
-	var address *models.Address
-	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
-		address, err = handler.dao.GetAddress(tx, id)
-		return err
+	address, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.GetAddress(tx, id)
 	})
 	if err != nil {
 		log.Error("Error getting address")
 		return nil, http.StatusInternalServerError, err
 	}
 	return utils.SerializeResponse(address, http.StatusOK)
-	// address := new(models.Address)
-	// err := conn.Model(address).Where("address.id = ?", id).Select()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// json.NewEncoder(w).Encode(address)
 }
 
 // CreateAddressHandler handles creating an address
-func (handler *AddressesHandler) CreateAddressHandler(r *http.Request) ([]byte, int, error) {
+func (handler *AddressesHandler) CreateAddressHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
 	var address *models.Address
 	json.NewDecoder(r.Body).Decode(&address)
 
@@ -74,35 +65,53 @@ func (handler *AddressesHandler) CreateAddressHandler(r *http.Request) ([]byte, 
 		"address": address,
 	}).Info("Creating address")
 
-	conn := db.GetDBConn()
-
-	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
-		address, err = handler.dao.CreateAddress(tx, address)
-		return err
+	createdAddress, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.CreateAddress(tx, address)
 	})
 	if err != nil {
 		log.Error("Error creating address")
-		return nil, http.StatusInternalServerError, err
+		return nil, http.StatusBadRequest, err
 	}
 
-	return utils.SerializeResponse(address, http.StatusOK)
+	return utils.SerializeResponse(createdAddress, http.StatusOK)
 }
 
 // UpdateAddressHandler updates an existing address
-func (handler *AddressesHandler) UpdateAddressHandler(r *http.Request) ([]byte, int, error) {
-	// TODO
-	return nil, 0, nil
+func (handler *AddressesHandler) UpdateAddressHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+	id := utils.GetIDFromVars(vars)
+	var address *models.Address
+	json.NewDecoder(r.Body).Decode(&address)
+	address.ID = id
+
+	log.WithFields(log.Fields{
+		"address": address,
+	}).Info("Updating address")
+
+	updatedAddress, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.UpdateAddress(tx, address)
+	})
+	if err != nil {
+		log.Error("Error updating address")
+		return nil, http.StatusBadRequest, err
+	}
+
+	return utils.SerializeResponse(updatedAddress, http.StatusOK)
 }
 
 // DeleteAddressHandler deletes an address
-func (handler *AddressesHandler) DeleteAddressHandler(r *http.Request) ([]byte, int, error) {
-	// params := mux.Vars(r)
-	// for index, item := range guests {
-	// 	if item.ID == params["id"] {
-	// 		guests = append(guests[:index], guests[index+1:]...)
-	// 		break
-	// 	}
-	// }
-	// json.NewEncoder(w).Encode(guests)
-	return nil, 0, nil
+func (handler *AddressesHandler) DeleteAddressHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+	id := utils.GetIDFromVars(vars)
+
+	log.WithFields(log.Fields{
+		"id": id,
+	}).Info("Deleting address")
+
+	_, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.DeleteAddress(tx, id)
+	})
+	if err != nil {
+		log.Error("Error deleting address")
+		return nil, http.StatusBadRequest, err
+	}
+	return utils.SerializeResponse(nil, http.StatusOK)
 }

@@ -47,3 +47,12 @@ var (
 	// JSONMarshalingError indicates an issue with masrhaling a struct to json
 	JSONMarshalingError = merry.WithMessage(MarshalingError, "JSON marshaling error")
 )
+
+// SQL Errors
+var (
+	SQLError = merry.New("SQL error")
+
+	SQLPrepareStmtError = merry.WithMessage(SQLError, "SQL prepare statement error")
+
+	SQLUpdateError = merry.WithMessage(SQLError, "SQL update error")
+)

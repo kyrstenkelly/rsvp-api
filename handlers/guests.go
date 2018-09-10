@@ -3,14 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"github.com/go-pg/pg"
-	"github.com/gorilla/mux"
 	"github.com/kyrstenkelly/rsvp-api/db"
 	"github.com/kyrstenkelly/rsvp-api/db/access"
 	"github.com/kyrstenkelly/rsvp-api/db/models"
 	"github.com/kyrstenkelly/rsvp-api/utils"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"strconv"
 )
 
 // GuestsHandler type
@@ -24,33 +22,32 @@ func NewGuestsHandler(dao access.GuestsAccess) *GuestsHandler {
 }
 
 // GetGuestsHandler gets a list of all guests
-func (handler *GuestsHandler) GetGuestsHandler(r *http.Request) ([]byte, int, error) {
+func (handler *GuestsHandler) GetGuestsHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
 	log.Info("Getting all guests")
-	// conn := db.GetDBConn()
+	conn := db.GetDBConn()
 
-	// var guests []models.Guest
-	// err := dao.Model(&guests).Select()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// json.NewEncoder(w).Encode(guests)
-	return nil, 0, nil
+	var guests []models.Guest
+	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
+		guests, err = handler.dao.GetGuests(tx)
+		return err
+	})
+	if err != nil {
+		log.Error("Error getting guests")
+		return nil, http.StatusBadRequest, err
+	}
+	return utils.SerializeResponse(guests, http.StatusOK)
 }
 
 // GetGuestHandler gets an guest by id
-func (handler *GuestsHandler) GetGuestHandler(r *http.Request) ([]byte, int, error) {
-	conn := db.GetDBConn()
+func (handler *GuestsHandler) GetGuestHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+	id := utils.GetIDFromVars(vars)
 
-	params := mux.Vars(r)
-	id, _ := strconv.ParseInt(params["id"], 10, 64)
 	log.WithFields(log.Fields{
 		"id": id,
 	}).Info("Getting guest by ID")
 
-	var guest *models.Guest
-	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
-		guest, err = handler.dao.GetGuest(tx, id)
-		return err
+	guest, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.GetGuest(tx, id)
 	})
 	if err != nil {
 		log.Error("Error getting guest")
@@ -60,39 +57,61 @@ func (handler *GuestsHandler) GetGuestHandler(r *http.Request) ([]byte, int, err
 }
 
 // CreateGuestHandler handles creating an guest
-func (handler *GuestsHandler) CreateGuestHandler(r *http.Request) ([]byte, int, error) {
-	conn := db.GetDBConn()
-
+func (handler *GuestsHandler) CreateGuestHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
 	var guest *models.Guest
 	json.NewDecoder(r.Body).Decode(&guest)
 
-	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
-		_, err = handler.dao.CreateGuest(tx, guest)
-		return err
+	log.WithFields(log.Fields{
+		"guest": guest,
+	}).Info("Creating guest")
+
+	createdGuest, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.CreateGuest(tx, guest)
 	})
 	if err != nil {
 		log.Error("Error creating guest")
-		return nil, http.StatusInternalServerError, err
+		return nil, http.StatusBadRequest, err
 	}
 
-	return utils.SerializeResponse(guest, http.StatusOK)
+	return utils.SerializeResponse(createdGuest, http.StatusOK)
 }
 
 // UpdateGuestHandler updates an existing guest
-func (handler *GuestsHandler) UpdateGuestHandler(r *http.Request) ([]byte, int, error) {
-	// TODO
-	return nil, 0, nil
+func (handler *GuestsHandler) UpdateGuestHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+	id := utils.GetIDFromVars(vars)
+	var guest *models.Guest
+	json.NewDecoder(r.Body).Decode(&guest)
+	guest.ID = id
+
+	log.WithFields(log.Fields{
+		"guest": guest,
+	}).Info("Updating guest")
+
+	updatedGuest, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.UpdateGuest(tx, guest)
+	})
+	if err != nil {
+		log.Error("Error updating guest")
+		return nil, http.StatusBadRequest, err
+	}
+
+	return utils.SerializeResponse(updatedGuest, http.StatusOK)
 }
 
 // DeleteGuestHandler deletes an guest
-func (handler *GuestsHandler) DeleteGuestHandler(r *http.Request) ([]byte, int, error) {
-	// params := mux.Vars(r)
-	// for index, item := range guests {
-	// 	if item.ID == params["id"] {
-	// 		guests = append(guests[:index], guests[index+1:]...)
-	// 		break
-	// 	}
-	// }
-	// json.NewEncoder(w).Encode(guests)
-	return nil, 0, nil
+func (handler *GuestsHandler) DeleteGuestHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+	id := utils.GetIDFromVars(vars)
+
+	log.WithFields(log.Fields{
+		"id": id,
+	}).Info("Deleting guest")
+
+	_, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.DeleteGuest(tx, id)
+	})
+	if err != nil {
+		log.Error("Error deleting guest")
+		return nil, http.StatusBadRequest, err
+	}
+	return utils.SerializeResponse(nil, http.StatusOK)
 }
