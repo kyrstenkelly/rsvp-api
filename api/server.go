@@ -9,7 +9,13 @@ import (
 	"net/http"
 )
 
-const swaggerPath = "/api/v1/swagger"
+func buildHandler(handlerMethod func(request *http.Request, vars map[string]string) ([]byte, int, error), authRequired bool) http.Handler {
+	handlerFunc := utils.WrapHandler(handlerMethod)
+	if authRequired {
+		return jwtMiddleware.Handler(handlerFunc)
+	}
+	return handlerFunc
+}
 
 // Serve sets up handlers and serves at the given port
 func Serve(port int64) {
@@ -21,17 +27,21 @@ func Serve(port int64) {
 	guestsDAO := access.NewGuestsDAO()
 	guestHandler := handlers.NewGuestsHandler(guestsDAO)
 
-	router.HandleFunc("/addresses", utils.WrapHandler(addressHandler.GetAddressesHandler)).Methods("GET")
-	router.HandleFunc("/addresses", utils.WrapHandler(addressHandler.CreateAddressHandler)).Methods("POST")
-	router.HandleFunc("/addresses/{id}", utils.WrapHandler(addressHandler.GetAddressHandler)).Methods("GET")
-	router.HandleFunc("/addresses/{id}", utils.WrapHandler(addressHandler.UpdateAddressHandler)).Methods("PUT")
-	router.HandleFunc("/addresses/{id}", utils.WrapHandler(addressHandler.DeleteAddressHandler)).Methods("DELETE")
+	// tokenHandler := http.HandlerFunc(handlers.GetTokenHandler)
 
-	router.HandleFunc("/guests", utils.WrapHandler(guestHandler.GetGuestsHandler)).Methods("GET")
-	router.HandleFunc("/guests", utils.WrapHandler(guestHandler.CreateGuestHandler)).Methods("POST")
-	router.HandleFunc("/guests/{id}", utils.WrapHandler(guestHandler.GetGuestHandler)).Methods("GET")
-	router.HandleFunc("/guests/{id}", utils.WrapHandler(guestHandler.UpdateGuestHandler)).Methods("PUT")
-	router.HandleFunc("/guests/{id}", utils.WrapHandler(guestHandler.DeleteGuestHandler)).Methods("DELETE")
+	router.HandleFunc("/get-token", handlers.GetTokenHandler).Methods("GET")
+
+	router.Handle("/addresses", buildHandler(addressHandler.GetAddressesHandler, true)).Methods("GET")
+	router.Handle("/addresses", buildHandler(addressHandler.CreateAddressHandler, true)).Methods("POST")
+	router.Handle("/addresses/{id}", buildHandler(addressHandler.GetAddressHandler, true)).Methods("GET")
+	router.Handle("/addresses/{id}", buildHandler(addressHandler.UpdateAddressHandler, true)).Methods("PUT")
+	router.Handle("/addresses/{id}", buildHandler(addressHandler.DeleteAddressHandler, true)).Methods("DELETE")
+
+	router.Handle("/guests", buildHandler(guestHandler.GetGuestsHandler, true)).Methods("GET")
+	router.Handle("/guests", buildHandler(guestHandler.CreateGuestHandler, true)).Methods("POST")
+	router.Handle("/guests/{id}", buildHandler(guestHandler.GetGuestHandler, true)).Methods("GET")
+	router.Handle("/guests/{id}", buildHandler(guestHandler.UpdateGuestHandler, true)).Methods("PUT")
+	router.Handle("/guests/{id}", buildHandler(guestHandler.DeleteGuestHandler, true)).Methods("DELETE")
 
 	log.Fatal(http.ListenAndServe(":8000", router))
 }

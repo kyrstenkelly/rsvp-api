@@ -17,7 +17,7 @@ type ErrorResponse struct {
 }
 
 // WrapHandler Extract attributes of errors and write them to ResponseWriter
-func WrapHandler(handler func(request *http.Request, vars map[string]string) ([]byte, int, error)) func(writer http.ResponseWriter, request *http.Request) {
+func WrapHandler(handler func(request *http.Request, vars map[string]string) ([]byte, int, error)) http.HandlerFunc {
 	f := func(writer http.ResponseWriter, request *http.Request) {
 		buf, statusCode, err := handler(request, mux.Vars(request))
 
