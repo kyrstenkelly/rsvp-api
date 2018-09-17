@@ -12,7 +12,7 @@ import (
 func buildHandler(handlerMethod func(request *http.Request, vars map[string]string) ([]byte, int, error), authRequired bool) http.Handler {
 	handlerFunc := utils.WrapHandler(handlerMethod)
 	if authRequired {
-		return jwtMiddleware.Handler(handlerFunc)
+		return authMiddleware(handlerFunc)
 	}
 	return handlerFunc
 }
@@ -21,15 +21,14 @@ func buildHandler(handlerMethod func(request *http.Request, vars map[string]stri
 func Serve(port int64) {
 	router := mux.NewRouter()
 
+	router.Handle("/", http.FileServer(http.Dir("./views/")))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
+
 	addressDAO := access.NewAddressesDAO()
 	addressHandler := handlers.NewAddressesHandler(addressDAO)
 
 	guestsDAO := access.NewGuestsDAO()
 	guestHandler := handlers.NewGuestsHandler(guestsDAO)
-
-	// tokenHandler := http.HandlerFunc(handlers.GetTokenHandler)
-
-	router.HandleFunc("/get-token", handlers.GetTokenHandler).Methods("GET")
 
 	router.Handle("/addresses", buildHandler(addressHandler.GetAddressesHandler, true)).Methods("GET")
 	router.Handle("/addresses", buildHandler(addressHandler.CreateAddressHandler, true)).Methods("POST")
