@@ -15,7 +15,6 @@ type AuthConfig struct {
 	ClientAudience string `envconfig:"AUTH_CLIENT_AUDIENCE"`
 	ClientDomain   string `envconfig:"AUTH_CLIENT_DOMAIN"`
 	ClientSecret   string `envconfig:"AUTH_CLIENT_SECRET"`
-	SigningSecret  string `envconfig:"AUTH_SIGNING_SECRET"`
 }
 
 // GetConfig loads the config object from env vars and returns it
@@ -39,9 +38,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		secret := []byte(config.ClientSecret)
 		secretProvider := auth0.NewKeyProvider(secret)
 		audience := []string{config.ClientAudience}
-
-		domain := "http://" + config.ClientDomain + ".auth0.com"
-		configuration := auth0.NewConfiguration(secretProvider, audience, domain, jose.HS256)
+		configuration := auth0.NewConfiguration(secretProvider, audience, config.ClientDomain, jose.HS256)
 		validator := auth0.NewValidator(configuration, nil)
 
 		token, err := validator.ValidateRequest(r)

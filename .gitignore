@@ -1,3 +1,4 @@
 rsvp-api
 .idea
 .DS_Store
+.env
