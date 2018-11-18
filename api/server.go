@@ -27,30 +27,35 @@ func Serve(port int64) {
 
 	addressDAO := access.NewAddressesDAO()
 	addressHandler := handlers.NewAddressesHandler(addressDAO)
-
-	eventsDAO := access.NewEventsDAO()
-	eventsHandler := handlers.NewEventsHandler(eventsDAO)
-
-	guestsDAO := access.NewGuestsDAO()
-	guestsHandler := handlers.NewGuestsHandler(guestsDAO)
-
 	router.Handle("/addresses", buildHandler(addressHandler.GetAddressesHandler, true)).Methods("GET")
 	router.Handle("/addresses", buildHandler(addressHandler.CreateAddressHandler, true)).Methods("POST")
 	router.Handle("/addresses/{id}", buildHandler(addressHandler.GetAddressHandler, true)).Methods("GET")
 	router.Handle("/addresses/{id}", buildHandler(addressHandler.UpdateAddressHandler, true)).Methods("PUT")
 	router.Handle("/addresses/{id}", buildHandler(addressHandler.DeleteAddressHandler, true)).Methods("DELETE")
 
+	eventsDAO := access.NewEventsDAO()
+	eventsHandler := handlers.NewEventsHandler(eventsDAO)
 	router.Handle("/events", buildHandler(eventsHandler.GetEventsHandler, true)).Methods("GET")
 	router.Handle("/events", buildHandler(eventsHandler.CreateEventHandler, false)).Methods("POST")
 	router.Handle("/events/{id}", buildHandler(eventsHandler.GetEventHandler, false)).Methods("GET")
 	router.Handle("/events/{id}", buildHandler(eventsHandler.UpdateEventHandler, false)).Methods("PUT")
 	router.Handle("/events/{id}", buildHandler(eventsHandler.DeleteEventHandler, true)).Methods("DELETE")
 
+	guestsDAO := access.NewGuestsDAO()
+	guestsHandler := handlers.NewGuestsHandler(guestsDAO)
 	router.Handle("/guests", buildHandler(guestsHandler.GetGuestsHandler, true)).Methods("GET")
 	router.Handle("/guests", buildHandler(guestsHandler.CreateGuestHandler, false)).Methods("POST")
 	router.Handle("/guests/{id}", buildHandler(guestsHandler.GetGuestHandler, false)).Methods("GET")
 	router.Handle("/guests/{id}", buildHandler(guestsHandler.UpdateGuestHandler, false)).Methods("PUT")
 	router.Handle("/guests/{id}", buildHandler(guestsHandler.DeleteGuestHandler, true)).Methods("DELETE")
+
+	rsvpsDAO := access.NewRSVPsDAO()
+	rsvpsHandler := handlers.NewRSVPsHandler(rsvpsDAO)
+	router.Handle("/rsvps", buildHandler(rsvpsHandler.GetRSVPsHandler, true)).Methods("GET")
+	router.Handle("/rsvps", buildHandler(rsvpsHandler.CreateRSVPHandler, false)).Methods("POST")
+	router.Handle("/rsvps/{id}", buildHandler(rsvpsHandler.GetRSVPHandler, false)).Methods("GET")
+	router.Handle("/rsvps/{id}", buildHandler(rsvpsHandler.UpdateRSVPHandler, false)).Methods("PUT")
+	router.Handle("/rsvps/{id}", buildHandler(rsvpsHandler.DeleteRSVPHandler, true)).Methods("DELETE")
 
 	headersOk := muxHandlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
 	originsOk := muxHandlers.AllowedOrigins([]string{"*"})
