@@ -16,6 +16,7 @@ type GuestsPostgresAccess struct {
 type GuestsAccess interface {
 	GetGuests(tx *pg.Tx) ([]models.Guest, error)
 	GetGuest(tx *pg.Tx, id int64) (*models.Guest, error)
+	GetGuestByRSVPCode(tx *pg.Tx, rsvpCode string) (*models.Guest, error)
 	CreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
 	UpdateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
 	DeleteGuest(tx *pg.Tx, id int64) (*models.Guest, error)
@@ -59,10 +60,23 @@ func (a *GuestsPostgresAccess) GetGuests(tx *pg.Tx) ([]models.Guest, error) {
 	return guests, nil
 }
 
-// GetGuest gets an guest by id
+// GetGuest gets a guest by id
 func (a *GuestsPostgresAccess) GetGuest(tx *pg.Tx, id int64) (*models.Guest, error) {
 	guest := new(models.Guest)
 	err := tx.Model(guest).Where("guest.id = ?", id).Select()
+	if err == pg.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	return guest, nil
+}
+
+// GetGuestByRSVPCode get a guest by RSVP code
+func (a *GuestsPostgresAccess) GetGuestByRSVPCode(tx *pg.Tx, rsvpCode string) (*models.Guest, error) {
+	guest := new(models.Guest)
+	err := tx.Model(guest).Where("guest.rsvp_code = ?", rsvpCode).Select()
 	if err == pg.ErrNoRows {
 		return nil, nil
 	} else if err != nil {

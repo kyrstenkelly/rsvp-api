@@ -26,6 +26,11 @@ func (handler *GuestsHandler) GetGuestsHandler(r *http.Request, vars map[string]
 	log.Info("Getting all guests")
 	conn := db.GetDBConn()
 
+	rsvpCode := r.FormValue("rsvp_code")
+	if rsvpCode != "" {
+		return handler.GetGuestByRSVPCode(r, rsvpCode)
+	}
+
 	var guests []models.Guest
 	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
 		guests, err = handler.dao.GetGuests(tx)
@@ -36,6 +41,22 @@ func (handler *GuestsHandler) GetGuestsHandler(r *http.Request, vars map[string]
 		return nil, http.StatusBadRequest, err
 	}
 	return utils.SerializeResponse(guests, http.StatusOK)
+}
+
+// GetGuestByRSVPCode gets a guest by rsvp code
+func (handler *GuestsHandler) GetGuestByRSVPCode(r *http.Request, rsvpCode string) ([]byte, int, error) {
+	log.WithFields(log.Fields{
+		"rsvpCode": rsvpCode,
+	}).Info("Getting guest by RSVP code")
+
+	guest, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
+		return handler.dao.GetGuestByRSVPCode(tx, rsvpCode)
+	})
+	if err != nil {
+		log.Error("Error getting guest")
+		return nil, http.StatusInternalServerError, err
+	}
+	return utils.SerializeResponse(guest, http.StatusOK)
 }
 
 // GetGuestHandler gets an guest by id
