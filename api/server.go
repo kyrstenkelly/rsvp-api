@@ -1,6 +1,7 @@
 package api
 
 import (
+	muxHandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/kyrstenkelly/rsvp-api/db/access"
 	"github.com/kyrstenkelly/rsvp-api/handlers"
@@ -27,8 +28,11 @@ func Serve(port int64) {
 	addressDAO := access.NewAddressesDAO()
 	addressHandler := handlers.NewAddressesHandler(addressDAO)
 
+	eventsDAO := access.NewEventsDAO()
+	eventsHandler := handlers.NewEventsHandler(eventsDAO)
+
 	guestsDAO := access.NewGuestsDAO()
-	guestHandler := handlers.NewGuestsHandler(guestsDAO)
+	guestsHandler := handlers.NewGuestsHandler(guestsDAO)
 
 	router.Handle("/addresses", buildHandler(addressHandler.GetAddressesHandler, true)).Methods("GET")
 	router.Handle("/addresses", buildHandler(addressHandler.CreateAddressHandler, true)).Methods("POST")
@@ -36,11 +40,21 @@ func Serve(port int64) {
 	router.Handle("/addresses/{id}", buildHandler(addressHandler.UpdateAddressHandler, true)).Methods("PUT")
 	router.Handle("/addresses/{id}", buildHandler(addressHandler.DeleteAddressHandler, true)).Methods("DELETE")
 
-	router.Handle("/guests", buildHandler(guestHandler.GetGuestsHandler, true)).Methods("GET")
-	router.Handle("/guests", buildHandler(guestHandler.CreateGuestHandler, true)).Methods("POST")
-	router.Handle("/guests/{id}", buildHandler(guestHandler.GetGuestHandler, true)).Methods("GET")
-	router.Handle("/guests/{id}", buildHandler(guestHandler.UpdateGuestHandler, true)).Methods("PUT")
-	router.Handle("/guests/{id}", buildHandler(guestHandler.DeleteGuestHandler, true)).Methods("DELETE")
+	router.Handle("/events", buildHandler(eventsHandler.GetEventsHandler, true)).Methods("GET")
+	router.Handle("/events", buildHandler(eventsHandler.CreateEventHandler, false)).Methods("POST")
+	router.Handle("/events/{id}", buildHandler(eventsHandler.GetEventHandler, false)).Methods("GET")
+	router.Handle("/events/{id}", buildHandler(eventsHandler.UpdateEventHandler, false)).Methods("PUT")
+	router.Handle("/events/{id}", buildHandler(eventsHandler.DeleteEventHandler, true)).Methods("DELETE")
 
-	log.Fatal(http.ListenAndServe(":8000", router))
+	router.Handle("/guests", buildHandler(guestsHandler.GetGuestsHandler, true)).Methods("GET")
+	router.Handle("/guests", buildHandler(guestsHandler.CreateGuestHandler, false)).Methods("POST")
+	router.Handle("/guests/{id}", buildHandler(guestsHandler.GetGuestHandler, false)).Methods("GET")
+	router.Handle("/guests/{id}", buildHandler(guestsHandler.UpdateGuestHandler, false)).Methods("PUT")
+	router.Handle("/guests/{id}", buildHandler(guestsHandler.DeleteGuestHandler, true)).Methods("DELETE")
+
+	headersOk := muxHandlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
+	originsOk := muxHandlers.AllowedOrigins([]string{"*"})
+	methodsOk := muxHandlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+
+	log.Fatal(http.ListenAndServe(":8000", muxHandlers.CORS(originsOk, headersOk, methodsOk)(router)))
 }

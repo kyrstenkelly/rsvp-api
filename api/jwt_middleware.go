@@ -48,8 +48,8 @@ func authMiddleware(next http.Handler) http.Handler {
 				"err":   err,
 				"token": token,
 			}).Error("Token is not valid")
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("Unauthorized"))
 		} else {
 			next.ServeHTTP(w, r)
 		}

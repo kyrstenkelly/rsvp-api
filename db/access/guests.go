@@ -9,6 +9,7 @@ import (
 
 // GuestsPostgresAccess postgres implementation of a CohortsDAO
 type GuestsPostgresAccess struct {
+	addressAccess AddressesAccess
 }
 
 // GuestsAccess interface for a Cohorts data access object
@@ -22,16 +23,38 @@ type GuestsAccess interface {
 
 // NewGuestsDAO Create a new guests dao
 func NewGuestsDAO() GuestsAccess {
-	return &GuestsPostgresAccess{}
+	addressesDAO := NewAddressesDAO()
+	return &GuestsPostgresAccess{
+		addressAccess: addressesDAO,
+	}
+}
+
+func _findGuestAddress(guest models.Guest, addresses []models.Address) *models.Address {
+	log.WithFields(log.Fields{
+		"address_ID": guest.AddressID,
+		"guest":      guest,
+		"addresses":  addresses,
+	}).Debug("Searching for guest address")
+	for _, address := range addresses {
+		if address.ID == guest.AddressID {
+			return &address
+		}
+	}
+	return nil
 }
 
 // GetGuests gets all guests
 func (a *GuestsPostgresAccess) GetGuests(tx *pg.Tx) ([]models.Guest, error) {
 	var guests []models.Guest
-	err := tx.Model(&guests).Select()
+	addresses, err := a.addressAccess.GetAddresses(tx)
+	err = tx.Model(&guests).Select()
 	if err != nil {
 		log.Error(err)
 		return nil, err
+	}
+	for i, guest := range guests {
+		guest.Address = _findGuestAddress(guest, addresses)
+		guests[i] = guest
 	}
 	return guests, nil
 }
