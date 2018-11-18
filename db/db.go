@@ -56,7 +56,7 @@ func InitDb() error {
 	err = createSchema(conn)
 	err = conn.RunInTransaction(func(tx *pg.Tx) (err error) {
 		oldVersion, newVersion, err = migrations.RunMigrations(tx, migrations.RegisteredMigrations())
-		return
+		return err
 	})
 	if err != nil {
 		log.Error("Unable to run database migrations")

@@ -8,4 +8,5 @@ type Guest struct {
 	Email     string   `json:"email" db:"email"`
 	AddressID int64    `json:"address_id" db:"address_id"`
 	Address   *Address `json:"address"`
+	RSVPCode  string   `json:"rsvp_code" db:"rsvp_code"`
 }
