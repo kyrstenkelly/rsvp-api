@@ -25,6 +25,26 @@ func NewAddressesDAO() AddressesAccess {
 	return &AddressesPostgresAccess{}
 }
 
+// CheckForDuplicate checks for an existing address
+func CheckForDuplicate(tx *pg.Tx, address *models.Address) (int64, error) {
+	query :=
+		`SELECT id FROM addresses
+		WHERE line1 = $1 AND line2 = $2 AND city = $3
+			AND state = $4 AND zip = $5`
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		log.Error(err)
+		return 0, err
+	}
+
+	var addressID int64
+	_, err = stmt.Query(pg.Scan(&addressID), &address.Line1, &address.Line2, &address.City, &address.State, &address.Zip)
+	if err != nil {
+		return 0, err
+	}
+	return addressID, nil
+}
+
 // GetAddresses gets all addresses
 func (a *AddressesPostgresAccess) GetAddresses(tx *pg.Tx) ([]models.Address, error) {
 	var addresses []models.Address
@@ -51,6 +71,13 @@ func (a *AddressesPostgresAccess) GetAddress(tx *pg.Tx, id int64) (*models.Addre
 
 // CreateAddress creates an address
 func (a *AddressesPostgresAccess) CreateAddress(tx *pg.Tx, address *models.Address) (*models.Address, error) {
+	existingAddressID, err := CheckForDuplicate(tx, address)
+	if err != nil {
+		return nil, err
+	}
+	if existingAddressID > 0 {
+		return a.GetAddress(tx, existingAddressID)
+	}
 	query :=
 		`INSERT INTO
 			addresses ("line1", "line2", "city", "state", "zip")

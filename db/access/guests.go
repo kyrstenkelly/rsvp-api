@@ -74,12 +74,18 @@ func (a *GuestsPostgresAccess) GetGuest(tx *pg.Tx, id int64) (*models.Guest, err
 
 // CreateGuest creates an guest
 func (a *GuestsPostgresAccess) CreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error) {
-	// TODO: Get address ID
+	address, err := a.addressAccess.CreateAddress(tx, guest.Address)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	// TODO: Generate dynamic RSVP code
 	query :=
 		`INSERT INTO
-			guests ("first_name", "last_name", "email")
+			guests ("first_name", "last_name", "email", "address_id")
 		VALUES
-			($1, $2, $3)
+			($1, $2, $3, $4)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -88,12 +94,13 @@ func (a *GuestsPostgresAccess) CreateGuest(tx *pg.Tx, guest *models.Guest) (*mod
 	}
 
 	var guestID int64
-	_, err = stmt.Query(pg.Scan(&guestID), &guest.FirstName, &guest.LastName, &guest.Email)
+	_, err = stmt.Query(pg.Scan(&guestID), &guest.FirstName, &guest.LastName, &guest.Email, &address.ID)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 	guest.ID = guestID
+	guest.AddressID = address.ID
 
 	return guest, nil
 }

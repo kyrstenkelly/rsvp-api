@@ -1,7 +1,6 @@
 package access
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/go-pg/pg"
