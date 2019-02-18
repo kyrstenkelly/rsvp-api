@@ -10,7 +10,7 @@ import (
 
 // RSVPsPostgresAccess postgres implementation of a CohortsDAO
 type RSVPsPostgresAccess struct {
-	guestsAccess GuestsAccess
+	rsvpGuestAccess RSVPGuestsAccess
 }
 
 // RSVPsAccess interface for a Cohorts data access object
@@ -24,9 +24,9 @@ type RSVPsAccess interface {
 
 // NewRSVPsDAO Create a new rsvps dao
 func NewRSVPsDAO() RSVPsAccess {
-	guestsDAO := NewGuestsDAO()
+	rsvpGuestsDAO := NewRSVPGuestsDAO()
 	return &RSVPsPostgresAccess{
-		guestsAccess: guestsDAO,
+		rsvpGuestAccess: rsvpGuestsDAO,
 	}
 }
 
@@ -56,11 +56,23 @@ func (a *RSVPsPostgresAccess) GetRSVP(tx *pg.Tx, id int64) (*models.RSVP, error)
 
 // CreateRSVP creates an rsvp
 func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.RSVP, error) {
+	// Create and append RSVPGuests to the RSVP
+	var rsvpGuests []*models.RSVPGuest
+	for _, rsvpGuest := range rsvp.RSVPGuests {
+		newRSVPGuest, err := a.rsvpGuestAccess.CreateRSVPGuest(tx, rsvpGuest)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		rsvpGuests = append(rsvpGuests, newRSVPGuest)
+	}
+	rsvp.RSVPGuests = rsvpGuests
+
 	query :=
 		`INSERT INTO
-			rsvps ("invitation_id", "guest_id", "attending", "food_choice")
+			rsvps ("invitation_id", "rsvp_guests")
 		VALUES
-			($1, $2, $3, $4)
+			($1, $2)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -69,7 +81,7 @@ func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 	}
 
 	var rsvpID int64
-	_, err = stmt.Query(pg.Scan(&rsvpID), &rsvp.Attending, &rsvp.FoodChoice, &rsvp.Guest, &rsvp.InvitationID)
+	_, err = stmt.Query(pg.Scan(&rsvpID), &rsvp.InvitationID, &rsvp.RSVPGuests)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -82,12 +94,7 @@ func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 // UpdateRSVP updates an rsvp
 func (a *RSVPsPostgresAccess) UpdateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.RSVP, error) {
 	var q []string
-	if rsvp.Attending {
-		q = append(q, "attending = ?attending")
-	}
-	if rsvp.FoodChoice != "" {
-		q = append(q, "food_choice = ?food_choice")
-	}
+	// TODO: update each rsvp guest
 
 	qString := strings.Join(q, ", ")
 	_, updateErr := tx.Model(rsvp).Set(qString).Where("id = ?id").Update()
@@ -102,10 +109,12 @@ func (a *RSVPsPostgresAccess) UpdateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 
 // DeleteRSVP deletes an rsvp
 func (a *RSVPsPostgresAccess) DeleteRSVP(tx *pg.Tx, id int64) (*models.RSVP, error) {
-	rsvp := &models.RSVP{
-		ID: id,
+	// First delete the RSVP guests, then the RSVP
+	rsvp, err := a.GetRSVP(tx, id)
+	for _, rsvpGuest := range rsvp.RSVPGuests {
+		a.rsvpGuestAccess.DeleteRSVPGuest(tx, rsvpGuest.ID)
 	}
-	err := tx.Delete(rsvp)
+	err = tx.Delete(rsvp)
 	if err != nil {
 		log.Error(err)
 		return nil, err

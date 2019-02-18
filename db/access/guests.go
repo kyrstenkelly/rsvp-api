@@ -16,6 +16,7 @@ type GuestsAccess interface {
 	// TODO: Get guests by invitation ID
 	GetGuests(tx *pg.Tx) ([]models.Guest, error)
 	GetGuest(tx *pg.Tx, id int64) (*models.Guest, error)
+	GetGuestByName(tx *pg.Tx, name string) (*models.Guest, error)
 	CreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
 	UpdateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
 	DeleteGuest(tx *pg.Tx, id int64) (*models.Guest, error)
@@ -50,9 +51,21 @@ func (a *GuestsPostgresAccess) GetGuest(tx *pg.Tx, id int64) (*models.Guest, err
 	return guest, nil
 }
 
+// GetGuestByName gets a guest by name
+func (a *GuestsPostgresAccess) GetGuestByName(tx *pg.Tx, name string) (*models.Guest, error) {
+	guest := new(models.Guest)
+	err := tx.Model(guest).Where("guest.name = ?", name).Select()
+	if err == pg.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	return guest, nil
+}
+
 // CreateGuest creates an guest
 func (a *GuestsPostgresAccess) CreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error) {
-	// TODO: Generate dynamic RSVP code
 	query :=
 		`INSERT INTO
 			guests ("name")

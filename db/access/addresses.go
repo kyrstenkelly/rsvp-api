@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// AddressesPostgresAccess postgres implementation of a CohortsDAO
+// AddressesPostgresAccess postgres implementation of a AddressesDAO
 type AddressesPostgresAccess struct {
 }
 

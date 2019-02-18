@@ -74,7 +74,6 @@ func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *mode
 			log.Error(err)
 			return nil, err
 		}
-		log.Debug(newGuest)
 		guests = append(guests, *newGuest)
 	}
 	invitation.Guests = &guests

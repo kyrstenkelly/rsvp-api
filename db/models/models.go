@@ -7,4 +7,5 @@ var Models = []interface{}{
 	(*Guest)(nil),
 	(*Invitation)(nil),
 	(*RSVP)(nil),
+	(*RSVPGuest)(nil),
 }
