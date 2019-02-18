@@ -58,9 +58,9 @@ func (a *RSVPsPostgresAccess) GetRSVP(tx *pg.Tx, id int64) (*models.RSVP, error)
 func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.RSVP, error) {
 	query :=
 		`INSERT INTO
-			rsvps ("attending", "head_count", "guest_id")
+			rsvps ("invitation_id", "guest_id", "attending", "food_choice")
 		VALUES
-			($1, $2, $3)
+			($1, $2, $3, $4)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -69,7 +69,7 @@ func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 	}
 
 	var rsvpID int64
-	_, err = stmt.Query(pg.Scan(&rsvpID), &rsvp.Attending, &rsvp.HeadCount, &rsvp.GuestID)
+	_, err = stmt.Query(pg.Scan(&rsvpID), &rsvp.Attending, &rsvp.FoodChoice, &rsvp.GuestID, &rsvp.InvitationID)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -85,8 +85,8 @@ func (a *RSVPsPostgresAccess) UpdateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 	if rsvp.Attending {
 		q = append(q, "attending = ?attending")
 	}
-	if rsvp.HeadCount > 0 {
-		q = append(q, "head_count = ?head_count")
+	if rsvp.FoodChoice != "" {
+		q = append(q, "food_choice = ?food_choice")
 	}
 
 	qString := strings.Join(q, ", ")

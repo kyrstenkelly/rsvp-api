@@ -63,9 +63,9 @@ func (a *EventsPostgresAccess) CreateEvent(tx *pg.Tx, event *models.Event) (*mod
 
 	query :=
 		`INSERT INTO
-			events ("name", "address_id")
+			events ("name", "address_id", "food_options")
 		VALUES
-			($1, $2)
+			($1, $2, $3)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -93,6 +93,9 @@ func (a *EventsPostgresAccess) UpdateEvent(tx *pg.Tx, event *models.Event) (*mod
 	}
 	if event.AddressID > 0 {
 		q = append(q, "address_id = ?address_id")
+	}
+	if event.FoodOptions != nil {
+		q = append(q, "food_options = ?food_options")
 	}
 
 	qString := strings.Join(q, ", ")

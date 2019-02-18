@@ -1,4 +1,11 @@
 package models
 
 // Models is a list of models
-var Models = []interface{}{(*Address)(nil), (*Guest)(nil), (*Event)(nil), (*RSVP)(nil)}
+var Models = []interface{}{
+	(*Address)(nil),
+	(*Event)(nil),
+	(*Guest)(nil),
+	(*Invitation)(nil),
+	(*InvitationGuest)(nil),
+	(*RSVP)(nil),
+}

@@ -36,13 +36,13 @@ TODO!
 * DELETE `/events/:event_id`
 
 
-### Guests
+### Invitations
 
-* GET `/guests`
-* GET `/guests/:guest_id`
-* POST `/guests`
-* PUT `/guests/:guest_id`
-* DELETE `/guests/:guest_id`
+* GET `/invitations`
+* GET `/invitations/:invitation_id`
+* POST `/invitations`
+* PUT `/invitations/:invitation_id`
+* DELETE `/invitations/:invitation_id`
 
 ### RSVPs
 
@@ -51,6 +51,7 @@ TODO!
 * POST `/rsvps`
 * PUT `/rsvps/:rsvp_id`
 * DELETE `/rsvps/:rsvp_id`
+
 
 ## Models
 
@@ -61,27 +62,40 @@ TODO!
 | id       | INTEGER   | true     | ID of the event                  |
 | name     | STRING    | true     | name of the event                |
 | date     | DATE_TIME | true     | date and time of the event       |
-| address  | INTEGER   | false    | ID of the `address` for this event |
+| address_id  | INTEGER   | false    | ID of the `address` for this event |
+| food_options | STRING[] | false | food options for the event | 
 
 ### Guest
-  
-| property | type    | required | description                      |
-|----------|---------|----------|----------------------------------|
-| id       | INTEGER | true     | ID of the guest                  |
-| name     | STRING  | true     | name of the guest                |
-| email    | STRING  | false    | email for the guest              |
-| address  | INTEGER | false    | ID of the `address` for this guest |
+| property | type     | required | description                      |
+|----------|----------|----------|----------------------------------|
+| id       | INTEGER  | true     | ID of the guest                  |
+| name     | STRING   | true     | names of the guest               |
 
-### RSVP
-  
+### Invitation
+| property | type     | required | description                      |
+|----------|----------|----------|----------------------------------|
+| id       | INTEGER  | true     | ID of the invitation                  |
+| email    | STRING   | false    | email for the invitation              |
+| address_id  | INTEGER  | false    | ID of the `address` for this invitation |
+| name      | STRING | true | name for the invitation (i.e. "Kelly Family") |
+| plus_one | BOOLEAN  | false    | invitation includes a +1 - defaults to false |
+
+### Invitation Guests
+| property | type     | required | description                      |
+|----------|----------|----------|----------------------------------|
+| invitation_id | INTEGER | true | ID of the `invitation` |
+| guest_id | INTEGER | true | ID of the `guest` |
+
+### RSVP  
 | property   | type    | required | description                         |
 |------------|---------|----------|-------------------------------------|
-| id         | INTEGER | true     | ID of the guest                     |
-| event      | INTEGER | true     | ID of the `event` for this RSVP     |
-| num_people | INTEGER | true     | number of people in the reservation |
+| id         | INTEGER | true     | ID of the RSVP                     |
+| invitation_id | INTEGER | true | ID of the `invitation` for this RSVP |
+| guest_id | INTEGER | true | ID of the `guest` for this RSVP |
+| attending | BOOLEAN | true | guest is coming to the event |
+| food_option | STRING | false | food choice for the guest | 
 
 ### Address
-  
 | property | type    | required | description                |
 |----------|---------|----------|----------------------------|
 | id       | INTEGER | true     | ID of the guest            |
