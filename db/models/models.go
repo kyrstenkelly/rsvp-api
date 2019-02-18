@@ -6,6 +6,5 @@ var Models = []interface{}{
 	(*Event)(nil),
 	(*Guest)(nil),
 	(*Invitation)(nil),
-	(*InvitationGuest)(nil),
 	(*RSVP)(nil),
 }

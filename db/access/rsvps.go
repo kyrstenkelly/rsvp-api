@@ -69,7 +69,7 @@ func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 	}
 
 	var rsvpID int64
-	_, err = stmt.Query(pg.Scan(&rsvpID), &rsvp.Attending, &rsvp.FoodChoice, &rsvp.GuestID, &rsvp.InvitationID)
+	_, err = stmt.Query(pg.Scan(&rsvpID), &rsvp.Attending, &rsvp.FoodChoice, &rsvp.Guest, &rsvp.InvitationID)
 	if err != nil {
 		log.Error(err)
 		return nil, err

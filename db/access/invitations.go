@@ -10,6 +10,7 @@ import (
 // InvitationsPostgresAccess postgres implementation of a CohortsDAO
 type InvitationsPostgresAccess struct {
 	addressAccess AddressesAccess
+	guestAccess   GuestsAccess
 }
 
 // InvitationsAccess interface for a Cohorts data access object
@@ -24,37 +25,20 @@ type InvitationsAccess interface {
 // NewInvitationsDAO Create a new invitations dao
 func NewInvitationsDAO() InvitationsAccess {
 	addressesDAO := NewAddressesDAO()
+	guestsDAO := NewGuestsDAO()
 	return &InvitationsPostgresAccess{
 		addressAccess: addressesDAO,
+		guestAccess:   guestsDAO,
 	}
-}
-
-func _findInvitationAddress(invitation models.Invitation, addresses []models.Address) *models.Address {
-	log.WithFields(log.Fields{
-		"address_ID": invitation.AddressID,
-		"invitation": invitation,
-		"addresses":  addresses,
-	}).Debug("Searching for invitation address")
-	for _, address := range addresses {
-		if address.ID == invitation.AddressID {
-			return &address
-		}
-	}
-	return nil
 }
 
 // GetInvitations gets all invitations
 func (a *InvitationsPostgresAccess) GetInvitations(tx *pg.Tx) ([]models.Invitation, error) {
 	var invitations []models.Invitation
-	addresses, err := a.addressAccess.GetAddresses(tx)
-	err = tx.Model(&invitations).Select()
+	err := tx.Model(&invitations).Select()
 	if err != nil {
 		log.Error(err)
 		return nil, err
-	}
-	for i, invitation := range invitations {
-		invitation.Address = _findInvitationAddress(invitation, addresses)
-		invitations[i] = invitation
 	}
 	return invitations, nil
 }
@@ -74,18 +58,32 @@ func (a *InvitationsPostgresAccess) GetInvitation(tx *pg.Tx, id int64) (*models.
 
 // CreateInvitation creates an invitation
 func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *models.Invitation) (*models.Invitation, error) {
+	// Create and append address to invitation
 	address, err := a.addressAccess.CreateAddress(tx, invitation.Address)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
-	// TODO: create guests upon invitation creation
+	invitation.Address = address
+
+	// Create and append guests to invitation
+	var guests []models.Guest
+	for _, guest := range *invitation.Guests {
+		newGuest, err := a.guestAccess.CreateGuest(tx, &guest)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		log.Debug(newGuest)
+		guests = append(guests, *newGuest)
+	}
+	invitation.Guests = &guests
 
 	query :=
 		`INSERT INTO
-			invitations ("name", "email", "plus_one", "address_id")
+			invitations ("name", "email", "plus_one", "guests", "address")
 		VALUES
-			($1, $2, $3, $4)
+			($1, $2, $3, $4, $5)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -94,13 +92,12 @@ func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *mode
 	}
 
 	var invitationID int64
-	_, err = stmt.Query(pg.Scan(&invitationID), &invitation.Name, &invitation.Email, &invitation.PlusOne, &address.ID)
+	_, err = stmt.Query(pg.Scan(&invitationID), &invitation.Name, &invitation.Email, &invitation.PlusOne, &invitation.Guests, &invitation.Address)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 	invitation.ID = invitationID
-	invitation.AddressID = address.ID
 
 	return invitation, nil
 }
@@ -117,8 +114,13 @@ func (a *InvitationsPostgresAccess) UpdateInvitation(tx *pg.Tx, invitation *mode
 	if invitation.PlusOne {
 		q = append(q, "plus_one = ?plus_one")
 	}
-	if invitation.AddressID > 0 {
-		q = append(q, "address_id = ?address_id")
+	if invitation.Address != nil {
+		_, err := a.addressAccess.CreateAddress(tx, invitation.Address)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		q = append(q, "address = ?address")
 	}
 
 	qString := strings.Join(q, ", ")
