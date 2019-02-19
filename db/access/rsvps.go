@@ -1,8 +1,6 @@
 package access
 
 import (
-	"strings"
-
 	"github.com/go-pg/pg"
 	"github.com/kyrstenkelly/rsvp-api/db/models"
 	log "github.com/sirupsen/logrus"
@@ -44,6 +42,8 @@ func (a *RSVPsPostgresAccess) GetRSVPs(tx *pg.Tx) ([]models.RSVP, error) {
 // GetRSVP gets an rsvp by id
 func (a *RSVPsPostgresAccess) GetRSVP(tx *pg.Tx, id int64) (*models.RSVP, error) {
 	rsvp := new(models.RSVP)
+
+	// TODO: Join on rsvp_guests
 	err := tx.Model(rsvp).Where("rsvp.id = ?", id).Select()
 	if err == pg.ErrNoRows {
 		return nil, nil
@@ -56,23 +56,8 @@ func (a *RSVPsPostgresAccess) GetRSVP(tx *pg.Tx, id int64) (*models.RSVP, error)
 
 // CreateRSVP creates an rsvp
 func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.RSVP, error) {
-	// Create and append RSVPGuests to the RSVP
-	var rsvpGuests []*models.RSVPGuest
-	for _, rsvpGuest := range rsvp.RSVPGuests {
-		newRSVPGuest, err := a.rsvpGuestAccess.CreateRSVPGuest(tx, rsvpGuest)
-		if err != nil {
-			log.Error(err)
-			return nil, err
-		}
-		rsvpGuests = append(rsvpGuests, newRSVPGuest)
-	}
-	rsvp.RSVPGuests = rsvpGuests
-
 	query :=
-		`INSERT INTO
-			rsvps ("invitation_id", "rsvp_guests")
-		VALUES
-			($1, $2)
+		`INSERT INTO rsvps ("invitation_id") VALUES ($1)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -81,38 +66,60 @@ func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 	}
 
 	var rsvpID int64
-	_, err = stmt.Query(pg.Scan(&rsvpID), &rsvp.InvitationID, &rsvp.RSVPGuests)
+	_, err = stmt.Query(pg.Scan(&rsvpID), &rsvp.InvitationID)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 	rsvp.ID = rsvpID
 
-	return rsvp, nil
-}
-
-// UpdateRSVP updates an rsvp
-func (a *RSVPsPostgresAccess) UpdateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.RSVP, error) {
-	var q []string
-	// TODO: update each rsvp guest
-
-	qString := strings.Join(q, ", ")
-	_, updateErr := tx.Model(rsvp).Set(qString).Where("id = ?id").Update()
+	// Create and append RSVPGuests to the RSVP
+	var rsvpGuestIDs []int64
+	for _, rsvpGuest := range rsvp.RSVPGuests {
+		newRSVPGuest, err := a.rsvpGuestAccess.CreateRSVPGuest(tx, rsvpID, rsvpGuest)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		rsvpGuestIDs = append(rsvpGuestIDs, newRSVPGuest.ID)
+	}
+	rsvp.RSVPGuestIds = rsvpGuestIDs
+	_, updateErr := tx.Model(rsvp).Set("rsvp_guest_ids = ?rsvp_guest_ids").Where("id = ?id").Update()
 	if updateErr != nil {
 		log.Error(updateErr)
 		return nil, updateErr
 	}
 
-	updatedRSVP, _ := a.GetRSVP(tx, rsvp.ID)
-	return updatedRSVP, nil
+	return rsvp, nil
+}
+
+// UpdateRSVP updates an rsvp
+func (a *RSVPsPostgresAccess) UpdateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.RSVP, error) {
+	var updatedRSVPGuests []*models.RSVPGuest
+	log.Debug("about to update rsvp guests: ")
+	log.Debug(rsvp.RSVPGuests)
+	for _, rsvpGuest := range rsvp.RSVPGuests {
+		log.WithFields(log.Fields{
+			"foodChoice": rsvpGuest.FoodChoice,
+			"guest":      rsvpGuest.Guest,
+		}).Info("about to update rsvp guest")
+		updated, err := a.rsvpGuestAccess.UpdateRSVPGuest(tx, rsvpGuest)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		updatedRSVPGuests = append(updatedRSVPGuests, updated)
+	}
+	rsvp.RSVPGuests = updatedRSVPGuests
+	return rsvp, nil
 }
 
 // DeleteRSVP deletes an rsvp
 func (a *RSVPsPostgresAccess) DeleteRSVP(tx *pg.Tx, id int64) (*models.RSVP, error) {
 	// First delete the RSVP guests, then the RSVP
 	rsvp, err := a.GetRSVP(tx, id)
-	for _, rsvpGuest := range rsvp.RSVPGuests {
-		a.rsvpGuestAccess.DeleteRSVPGuest(tx, rsvpGuest.ID)
+	for _, rsvpGuestID := range rsvp.RSVPGuestIds {
+		a.rsvpGuestAccess.DeleteRSVPGuest(tx, rsvpGuestID)
 	}
 	err = tx.Delete(rsvp)
 	if err != nil {

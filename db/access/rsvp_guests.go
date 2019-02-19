@@ -18,7 +18,7 @@ type RSVPGuestsPostgresAccess struct {
 type RSVPGuestsAccess interface {
 	GetRSVPGuests(tx *pg.Tx, invitationID int64) ([]models.RSVPGuest, error)
 	GetRSVPGuest(tx *pg.Tx, id int64) (*models.RSVPGuest, error)
-	CreateRSVPGuest(tx *pg.Tx, rsvpGuest *models.RSVPGuest) (*models.RSVPGuest, error)
+	CreateRSVPGuest(tx *pg.Tx, rsvpID int64, rsvpGuest *models.RSVPGuest) (*models.RSVPGuest, error)
 	UpdateRSVPGuest(tx *pg.Tx, rsvpGuest *models.RSVPGuest) (*models.RSVPGuest, error)
 	DeleteRSVPGuest(tx *pg.Tx, id int64) (*models.RSVPGuest, error)
 }
@@ -43,10 +43,10 @@ func (a *RSVPGuestsPostgresAccess) GetRSVPGuests(tx *pg.Tx, invitationID int64) 
 	return rsvpGuests, nil
 }
 
-// GetRSVPGuest gets an rsvp by id
+// GetRSVPGuest gets an rsvpGuest by id
 func (a *RSVPGuestsPostgresAccess) GetRSVPGuest(tx *pg.Tx, id int64) (*models.RSVPGuest, error) {
 	rsvpGuest := new(models.RSVPGuest)
-	err := tx.Model(rsvpGuest).Where("rsvpGuest.id = ?", id).Select()
+	err := tx.Model(rsvpGuest).Where("rsvp_guest.id = ?", id).Select()
 	if err == pg.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -57,11 +57,11 @@ func (a *RSVPGuestsPostgresAccess) GetRSVPGuest(tx *pg.Tx, id int64) (*models.RS
 }
 
 // CreateRSVPGuest creates an rsvpGuest
-func (a *RSVPGuestsPostgresAccess) CreateRSVPGuest(tx *pg.Tx, rsvpGuest *models.RSVPGuest) (*models.RSVPGuest, error) {
+func (a *RSVPGuestsPostgresAccess) CreateRSVPGuest(tx *pg.Tx, rsvpID int64, rsvpGuest *models.RSVPGuest) (*models.RSVPGuest, error) {
 	var guest *models.Guest
 	var err error
 	// If it's a plus one, create a new guest. Otherwise verify that the guest is in the DB.
-	if rsvpGuest.PlusOne {
+	if rsvpGuest.IsPlusOne {
 		guest, err = a.guestAccess.CreateGuest(tx, rsvpGuest.Guest)
 	} else {
 		guest, err = a.guestAccess.GetGuestByName(tx, rsvpGuest.Guest.Name)
@@ -74,13 +74,13 @@ func (a *RSVPGuestsPostgresAccess) CreateRSVPGuest(tx *pg.Tx, rsvpGuest *models.
 		err := errors.New("Cannot create RSVP for a guest does not exist")
 		return nil, err
 	}
-	rsvpGuest.Guest = guest
+	rsvpGuest.GuestID = guest.ID
 
 	query :=
 		`INSERT INTO
-			rsvp_guests ("guest", "attending", "food_choice", "plus_one")
+			rsvp_guests ("rsvp_id", "guest_id", "attending", "food_choice", "is_plus_one")
 		VALUES
-			($1, $2, $3, $4)
+			($1, $2, $3, $4, $5)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -89,7 +89,7 @@ func (a *RSVPGuestsPostgresAccess) CreateRSVPGuest(tx *pg.Tx, rsvpGuest *models.
 	}
 
 	var rsvpGuestID int64
-	_, err = stmt.Query(pg.Scan(&rsvpGuestID), &rsvpGuest.Guest, &rsvpGuest.Attending, &rsvpGuest.FoodChoice, &rsvpGuest.PlusOne)
+	_, err = stmt.Query(pg.Scan(&rsvpGuestID), &rsvpID, &rsvpGuest.GuestID, &rsvpGuest.Attending, &rsvpGuest.FoodChoice, &rsvpGuest.IsPlusOne)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -101,15 +101,16 @@ func (a *RSVPGuestsPostgresAccess) CreateRSVPGuest(tx *pg.Tx, rsvpGuest *models.
 
 // UpdateRSVPGuest updates an rsvpGuest
 func (a *RSVPGuestsPostgresAccess) UpdateRSVPGuest(tx *pg.Tx, rsvpGuest *models.RSVPGuest) (*models.RSVPGuest, error) {
+	log.Debug("top of UpdateRSVPGuest")
 	var q []string
-	if rsvpGuest.Attending {
-		q = append(q, "attending = ?attending")
-	}
+	q = append(q, "attending = ?attending")
+	q = append(q, "is_plus_one = ?is_plus_one")
 	if rsvpGuest.FoodChoice != "" {
 		q = append(q, "food_choice = ?food_choice")
 	}
-	q = append(q, "plus_one = ?plus_one")
 
+	log.Debug("updating rsvp guest: ")
+	log.Debug(rsvpGuest)
 	qString := strings.Join(q, ", ")
 	_, updateErr := tx.Model(rsvpGuest).Set(qString).Where("id = ?id").Update()
 	if updateErr != nil {
@@ -117,7 +118,12 @@ func (a *RSVPGuestsPostgresAccess) UpdateRSVPGuest(tx *pg.Tx, rsvpGuest *models.
 		return nil, updateErr
 	}
 
-	updatedRSVPGuest, _ := a.GetRSVPGuest(tx, rsvpGuest.ID)
+	updatedRSVPGuest, err := a.GetRSVPGuest(tx, rsvpGuest.ID)
+	updatedRSVPGuest.Guest, err = a.guestAccess.GetGuest(tx, updatedRSVPGuest.GuestID)
+	if err != nil {
+		log.Error(updateErr)
+		return nil, updateErr
+	}
 	return updatedRSVPGuest, nil
 }
 
