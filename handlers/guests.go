@@ -56,8 +56,8 @@ func (handler *GuestsHandler) GetGuestHandler(r *http.Request, vars map[string]s
 	return utils.SerializeResponse(guest, http.StatusOK)
 }
 
-// CreateGuestHandler handles creating an guest
-func (handler *GuestsHandler) CreateGuestHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+// FindOrCreateGuestHandler handles creating an guest
+func (handler *GuestsHandler) FindOrCreateGuestHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
 	var guest *models.Guest
 	json.NewDecoder(r.Body).Decode(&guest)
 
@@ -66,7 +66,7 @@ func (handler *GuestsHandler) CreateGuestHandler(r *http.Request, vars map[strin
 	}).Info("Creating guest")
 
 	createdGuest, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
-		return handler.dao.CreateGuest(tx, guest)
+		return handler.dao.FindOrCreateGuest(tx, guest)
 	})
 	if err != nil {
 		log.Error("Error creating guest")

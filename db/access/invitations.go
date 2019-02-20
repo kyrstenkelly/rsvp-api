@@ -64,23 +64,17 @@ func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *mode
 		log.Error(err)
 		return nil, err
 	}
-	invitation.Address = address
+	invitation.AddressID = address.ID
 
-	// Create and append guests to invitation
-	var guests []models.Guest
-	for _, guest := range *invitation.Guests {
-		newGuest, err := a.guestAccess.CreateGuest(tx, &guest)
-		if err != nil {
-			log.Error(err)
-			return nil, err
-		}
-		guests = append(guests, *newGuest)
+	invitation.GuestIds, err = a.BuildGuestIDs(tx, invitation.Guests)
+	if err != nil {
+		log.Error(err)
+		return nil, err
 	}
-	invitation.Guests = &guests
 
 	query :=
 		`INSERT INTO
-			invitations ("name", "email", "plus_one", "guests", "address")
+			invitations ("name", "email", "plus_one", "guest_ids", "address_id")
 		VALUES
 			($1, $2, $3, $4, $5)
 		RETURNING id`
@@ -91,7 +85,7 @@ func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *mode
 	}
 
 	var invitationID int64
-	_, err = stmt.Query(pg.Scan(&invitationID), &invitation.Name, &invitation.Email, &invitation.PlusOne, &invitation.Guests, &invitation.Address)
+	_, err = stmt.Query(pg.Scan(&invitationID), &invitation.Name, &invitation.Email, &invitation.PlusOne, pg.Array(&invitation.GuestIds), &invitation.AddressID)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -121,6 +115,15 @@ func (a *InvitationsPostgresAccess) UpdateInvitation(tx *pg.Tx, invitation *mode
 		}
 		q = append(q, "address = ?address")
 	}
+	if invitation.Guests != nil {
+		guestIds, err := a.BuildGuestIDs(tx, invitation.Guests)
+		invitation.GuestIds = guestIds
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		q = append(q, "guest_ids = ?guest_ids")
+	}
 
 	qString := strings.Join(q, ", ")
 	_, updateErr := tx.Model(invitation).Set(qString).Where("id = ?id").Update()
@@ -133,15 +136,34 @@ func (a *InvitationsPostgresAccess) UpdateInvitation(tx *pg.Tx, invitation *mode
 	return updatedInvitation, nil
 }
 
-// DeleteInvitation deletes an invitation
+// DeleteInvitation deletes an invitation and the associated guests
 func (a *InvitationsPostgresAccess) DeleteInvitation(tx *pg.Tx, id int64) (*models.Invitation, error) {
-	invitation := &models.Invitation{
-		ID: id,
+	invitation, err := a.GetInvitation(tx, id)
+	if invitation == nil {
+		return nil, nil
 	}
-	err := tx.Delete(invitation)
+	for _, guestID := range invitation.GuestIds {
+		a.guestAccess.DeleteGuest(tx, guestID)
+	}
+	err = tx.Delete(invitation)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 	return nil, nil
+}
+
+// BuildGuestIDs takes a list of guests and returns a list of their IDs
+// After either finding or creating them
+func (a *InvitationsPostgresAccess) BuildGuestIDs(tx *pg.Tx, guests *[]models.Guest) ([]int64, error) {
+	var guestIDs []int64
+	for _, guest := range *guests {
+		newGuest, err := a.guestAccess.FindOrCreateGuest(tx, &guest)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		guestIDs = append(guestIDs, newGuest.ID)
+	}
+	return guestIDs, nil
 }

@@ -17,7 +17,7 @@ type GuestsAccess interface {
 	GetGuests(tx *pg.Tx) ([]models.Guest, error)
 	GetGuest(tx *pg.Tx, id int64) (*models.Guest, error)
 	GetGuestByName(tx *pg.Tx, name string) (*models.Guest, error)
-	CreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
+	FindOrCreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
 	UpdateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
 	DeleteGuest(tx *pg.Tx, id int64) (*models.Guest, error)
 }
@@ -54,7 +54,7 @@ func (a *GuestsPostgresAccess) GetGuest(tx *pg.Tx, id int64) (*models.Guest, err
 // GetGuestByName gets a guest by name
 func (a *GuestsPostgresAccess) GetGuestByName(tx *pg.Tx, name string) (*models.Guest, error) {
 	guest := new(models.Guest)
-	err := tx.Model(guest).Where("guest.name = ?", name).Select()
+	err := tx.Model(guest).Where("guest.name = ?", name).First()
 	if err == pg.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -64,8 +64,15 @@ func (a *GuestsPostgresAccess) GetGuestByName(tx *pg.Tx, name string) (*models.G
 	return guest, nil
 }
 
-// CreateGuest creates an guest
-func (a *GuestsPostgresAccess) CreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error) {
+// FindOrCreateGuest finds or creates an guest
+func (a *GuestsPostgresAccess) FindOrCreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error) {
+	existingGuest, err := a.GetGuestByName(tx, guest.Name)
+	if err != nil {
+		return nil, err
+	}
+	if existingGuest != nil {
+		return existingGuest, nil
+	}
 	query :=
 		`INSERT INTO
 			guests ("name")

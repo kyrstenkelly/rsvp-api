@@ -62,7 +62,7 @@ func (a *RSVPGuestsPostgresAccess) CreateRSVPGuest(tx *pg.Tx, rsvpID int64, rsvp
 	var err error
 	// If it's a plus one, create a new guest. Otherwise verify that the guest is in the DB.
 	if rsvpGuest.IsPlusOne {
-		guest, err = a.guestAccess.CreateGuest(tx, rsvpGuest.Guest)
+		guest, err = a.guestAccess.FindOrCreateGuest(tx, rsvpGuest.Guest)
 	} else {
 		guest, err = a.guestAccess.GetGuestByName(tx, rsvpGuest.Guest.Name)
 	}
