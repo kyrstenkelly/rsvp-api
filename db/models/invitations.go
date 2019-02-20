@@ -6,6 +6,8 @@ type Invitation struct {
 	Name      string   `json:"name" db:"name" sql:",notnull"`
 	Email     string   `json:"email" db:"email" sql:",notnull,unique"`
 	PlusOne   bool     `json:"plus_one" db:"plus_one"`
+	EventID   int64    `json:"event_id" db:"event_id" sql:",notnull"`
+	Event     *Event   `json:"event"`
 	GuestIds  []int64  `json:"guest_ids" db:"guest_ids" sql:",notnull,array"`
 	Guests    *[]Guest `json:"guests"`
 	AddressID int64    `json:"address_id" db:"address_id"`

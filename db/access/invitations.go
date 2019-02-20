@@ -66,6 +66,7 @@ func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *mode
 	}
 	invitation.AddressID = address.ID
 
+	// Find and append guest IDs to the invitation
 	invitation.GuestIds, err = a.BuildGuestIDs(tx, invitation.Guests)
 	if err != nil {
 		log.Error(err)
@@ -74,9 +75,9 @@ func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *mode
 
 	query :=
 		`INSERT INTO
-			invitations ("name", "email", "plus_one", "guest_ids", "address_id")
+			invitations ("event_id", "name", "email", "plus_one", "guest_ids", "address_id")
 		VALUES
-			($1, $2, $3, $4, $5)
+			($1, $2, $3, $4, $5, $6)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -85,7 +86,7 @@ func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *mode
 	}
 
 	var invitationID int64
-	_, err = stmt.Query(pg.Scan(&invitationID), &invitation.Name, &invitation.Email, &invitation.PlusOne, pg.Array(&invitation.GuestIds), &invitation.AddressID)
+	_, err = stmt.Query(pg.Scan(&invitationID), &invitation.EventID, &invitation.Name, &invitation.Email, &invitation.PlusOne, pg.Array(&invitation.GuestIds), &invitation.AddressID)
 	if err != nil {
 		log.Error(err)
 		return nil, err
