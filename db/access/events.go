@@ -55,7 +55,7 @@ func (a *EventsPostgresAccess) GetEvent(tx *pg.Tx, id int64) (*models.Event, err
 
 // CreateEvent creates an event
 func (a *EventsPostgresAccess) CreateEvent(tx *pg.Tx, event *models.Event) (*models.Event, error) {
-	address, err := a.addressAccess.CreateAddress(tx, event.Address)
+	address, err := a.addressAccess.FindOrCreateAddress(tx, event.Address)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -92,7 +92,7 @@ func (a *EventsPostgresAccess) UpdateEvent(tx *pg.Tx, event *models.Event) (*mod
 		q = append(q, "name = ?name")
 	}
 	if event.Address != nil {
-		_, err := a.addressAccess.CreateAddress(tx, event.Address)
+		_, err := a.addressAccess.FindOrCreateAddress(tx, event.Address)
 		if err != nil {
 			log.Error(err)
 			return nil, err

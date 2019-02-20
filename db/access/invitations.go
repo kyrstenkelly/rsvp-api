@@ -59,7 +59,7 @@ func (a *InvitationsPostgresAccess) GetInvitation(tx *pg.Tx, id int64) (*models.
 // CreateInvitation creates an invitation
 func (a *InvitationsPostgresAccess) CreateInvitation(tx *pg.Tx, invitation *models.Invitation) (*models.Invitation, error) {
 	// Create and append address to invitation
-	address, err := a.addressAccess.CreateAddress(tx, invitation.Address)
+	address, err := a.addressAccess.FindOrCreateAddress(tx, invitation.Address)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -108,7 +108,7 @@ func (a *InvitationsPostgresAccess) UpdateInvitation(tx *pg.Tx, invitation *mode
 		q = append(q, "plus_one = ?plus_one")
 	}
 	if invitation.Address != nil {
-		_, err := a.addressAccess.CreateAddress(tx, invitation.Address)
+		_, err := a.addressAccess.FindOrCreateAddress(tx, invitation.Address)
 		if err != nil {
 			log.Error(err)
 			return nil, err

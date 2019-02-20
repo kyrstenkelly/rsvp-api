@@ -28,7 +28,7 @@ func Serve(port int64) {
 	addressDAO := access.NewAddressesDAO()
 	addressHandler := handlers.NewAddressesHandler(addressDAO)
 	router.Handle("/addresses", buildHandler(addressHandler.GetAddressesHandler, true)).Methods("GET")
-	router.Handle("/addresses", buildHandler(addressHandler.CreateAddressHandler, true)).Methods("POST")
+	router.Handle("/addresses", buildHandler(addressHandler.FindOrCreateAddressHandler, true)).Methods("POST")
 	router.Handle("/addresses/{id}", buildHandler(addressHandler.GetAddressHandler, true)).Methods("GET")
 	router.Handle("/addresses/{id}", buildHandler(addressHandler.UpdateAddressHandler, true)).Methods("PUT")
 	router.Handle("/addresses/{id}", buildHandler(addressHandler.DeleteAddressHandler, true)).Methods("DELETE")

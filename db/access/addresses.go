@@ -15,7 +15,7 @@ type AddressesPostgresAccess struct {
 type AddressesAccess interface {
 	GetAddresses(tx *pg.Tx) ([]models.Address, error)
 	GetAddress(tx *pg.Tx, id int64) (*models.Address, error)
-	CreateAddress(tx *pg.Tx, address *models.Address) (*models.Address, error)
+	FindOrCreateAddress(tx *pg.Tx, address *models.Address) (*models.Address, error)
 	UpdateAddress(tx *pg.Tx, address *models.Address) (*models.Address, error)
 	DeleteAddress(tx *pg.Tx, id int64) (*models.Address, error)
 }
@@ -69,8 +69,8 @@ func (a *AddressesPostgresAccess) GetAddress(tx *pg.Tx, id int64) (*models.Addre
 	return address, nil
 }
 
-// CreateAddress creates an address
-func (a *AddressesPostgresAccess) CreateAddress(tx *pg.Tx, address *models.Address) (*models.Address, error) {
+// FindOrCreateAddress creates an address
+func (a *AddressesPostgresAccess) FindOrCreateAddress(tx *pg.Tx, address *models.Address) (*models.Address, error) {
 	existingAddressID, err := CheckForDuplicate(tx, address)
 	if err != nil {
 		return nil, err

@@ -56,8 +56,8 @@ func (handler *AddressesHandler) GetAddressHandler(r *http.Request, vars map[str
 	return utils.SerializeResponse(address, http.StatusOK)
 }
 
-// CreateAddressHandler handles creating an address
-func (handler *AddressesHandler) CreateAddressHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+// FindOrCreateAddressHandler handles creating an address
+func (handler *AddressesHandler) FindOrCreateAddressHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
 	var address *models.Address
 	json.NewDecoder(r.Body).Decode(&address)
 
@@ -66,7 +66,7 @@ func (handler *AddressesHandler) CreateAddressHandler(r *http.Request, vars map[
 	}).Info("Creating address")
 
 	createdAddress, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
-		return handler.dao.CreateAddress(tx, address)
+		return handler.dao.FindOrCreateAddress(tx, address)
 	})
 	if err != nil {
 		log.Error("Error creating address")
