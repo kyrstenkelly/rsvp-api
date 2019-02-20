@@ -32,7 +32,9 @@ func NewEventsDAO() EventsAccess {
 // GetEvents gets all events
 func (a *EventsPostgresAccess) GetEvents(tx *pg.Tx) ([]models.Event, error) {
 	var events []models.Event
-	err := tx.Model(&events).Select()
+	err := tx.Model(&events).
+		Column("event.*", "Address").
+		Select()
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -43,7 +45,11 @@ func (a *EventsPostgresAccess) GetEvents(tx *pg.Tx) ([]models.Event, error) {
 // GetEvent gets an event by id
 func (a *EventsPostgresAccess) GetEvent(tx *pg.Tx, id int64) (*models.Event, error) {
 	event := new(models.Event)
-	err := tx.Model(event).Where("event.id = ?", id).Select()
+	err := tx.Model(event).
+		Column("event.*", "Address").
+		Where("event.id = ?", id).
+		Select()
+
 	if err == pg.ErrNoRows {
 		return nil, nil
 	} else if err != nil {

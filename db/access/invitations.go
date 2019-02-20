@@ -35,7 +35,10 @@ func NewInvitationsDAO() InvitationsAccess {
 // GetInvitations gets all invitations
 func (a *InvitationsPostgresAccess) GetInvitations(tx *pg.Tx) ([]models.Invitation, error) {
 	var invitations []models.Invitation
-	err := tx.Model(&invitations).Select()
+	err := tx.Model(&invitations).
+		Column("invitation.*", "Address", "Event").
+		Select()
+
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -46,7 +49,18 @@ func (a *InvitationsPostgresAccess) GetInvitations(tx *pg.Tx) ([]models.Invitati
 // GetInvitation gets a invitation by id
 func (a *InvitationsPostgresAccess) GetInvitation(tx *pg.Tx, id int64) (*models.Invitation, error) {
 	invitation := new(models.Invitation)
-	err := tx.Model(invitation).Where("invitation.id = ?", id).Select()
+	err := tx.Model(invitation).
+		Column("invitation.*", "Address").
+		Where("invitation.id = ?", id).
+		Select()
+
+	var guests []models.Guest
+	for _, guestID := range invitation.GuestIds {
+		guest, _ := a.guestAccess.GetGuest(tx, guestID)
+		guests = append(guests, *guest)
+	}
+	invitation.Guests = &guests
+
 	if err == pg.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
