@@ -60,13 +60,13 @@ func (a *EventsPostgresAccess) CreateEvent(tx *pg.Tx, event *models.Event) (*mod
 		log.Error(err)
 		return nil, err
 	}
-	event.Address = address
+	event.AddressID = address.ID
 
 	query :=
 		`INSERT INTO
-			events ("name", "address", "food_options")
+			events ("name", "location", "address_id", "food_options", "date")
 		VALUES
-			($1, $2, $3)
+			($1, $2, $3, $4, $5)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -75,7 +75,7 @@ func (a *EventsPostgresAccess) CreateEvent(tx *pg.Tx, event *models.Event) (*mod
 	}
 
 	var eventID int64
-	_, err = stmt.Query(pg.Scan(&eventID), &event.Name, &event.Address, &event.FoodOptions)
+	_, err = stmt.Query(pg.Scan(&eventID), &event.Name, &event.Location, &event.AddressID, &event.FoodOptions, &event.Date)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -90,6 +90,9 @@ func (a *EventsPostgresAccess) UpdateEvent(tx *pg.Tx, event *models.Event) (*mod
 	var q []string
 	if event.Name != "" {
 		q = append(q, "name = ?name")
+	}
+	if event.Location != "" {
+		q = append(q, "location = ?location")
 	}
 	if event.Address != nil {
 		_, err := a.addressAccess.FindOrCreateAddress(tx, event.Address)
