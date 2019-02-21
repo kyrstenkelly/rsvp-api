@@ -26,14 +26,9 @@ func (handler *GuestsHandler) GetGuestsHandler(r *http.Request, vars map[string]
 	log.Info("Getting all guests")
 	conn := db.GetDBConn()
 
-	rsvpCode := r.FormValue("rsvp_code")
-	if rsvpCode != "" {
-		return handler.GetGuestByRSVPCode(r, rsvpCode)
-	}
-
 	var guests []models.Guest
 	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
-		guests, err = handler.dao.GetGuests(tx)
+		guests, err = handler.dao.GetGuests(tx, nil)
 		return err
 	})
 	if err != nil {
@@ -41,22 +36,6 @@ func (handler *GuestsHandler) GetGuestsHandler(r *http.Request, vars map[string]
 		return nil, http.StatusBadRequest, err
 	}
 	return utils.SerializeResponse(guests, http.StatusOK)
-}
-
-// GetGuestByRSVPCode gets a guest by rsvp code
-func (handler *GuestsHandler) GetGuestByRSVPCode(r *http.Request, rsvpCode string) ([]byte, int, error) {
-	log.WithFields(log.Fields{
-		"rsvpCode": rsvpCode,
-	}).Info("Getting guest by RSVP code")
-
-	guest, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
-		return handler.dao.GetGuestByRSVPCode(tx, rsvpCode)
-	})
-	if err != nil {
-		log.Error("Error getting guest")
-		return nil, http.StatusInternalServerError, err
-	}
-	return utils.SerializeResponse(guest, http.StatusOK)
 }
 
 // GetGuestHandler gets an guest by id
@@ -77,8 +56,8 @@ func (handler *GuestsHandler) GetGuestHandler(r *http.Request, vars map[string]s
 	return utils.SerializeResponse(guest, http.StatusOK)
 }
 
-// CreateGuestHandler handles creating an guest
-func (handler *GuestsHandler) CreateGuestHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
+// FindOrCreateGuestHandler handles creating an guest
+func (handler *GuestsHandler) FindOrCreateGuestHandler(r *http.Request, vars map[string]string) ([]byte, int, error) {
 	var guest *models.Guest
 	json.NewDecoder(r.Body).Decode(&guest)
 
@@ -87,7 +66,7 @@ func (handler *GuestsHandler) CreateGuestHandler(r *http.Request, vars map[strin
 	}).Info("Creating guest")
 
 	createdGuest, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
-		return handler.dao.CreateGuest(tx, guest)
+		return handler.dao.FindOrCreateGuest(tx, guest)
 	})
 	if err != nil {
 		log.Error("Error creating guest")

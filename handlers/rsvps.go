@@ -62,7 +62,7 @@ func (handler *RSVPsHandler) CreateRSVPHandler(r *http.Request, vars map[string]
 	json.NewDecoder(r.Body).Decode(&rsvp)
 
 	log.WithFields(log.Fields{
-		"rsvp": rsvp,
+		"invitation_id": rsvp.InvitationID,
 	}).Info("Creating rsvp")
 
 	createdRSVP, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {
@@ -84,7 +84,8 @@ func (handler *RSVPsHandler) UpdateRSVPHandler(r *http.Request, vars map[string]
 	rsvp.ID = id
 
 	log.WithFields(log.Fields{
-		"rsvp": rsvp,
+		"invitation_id": rsvp.InvitationID,
+		"rsvp_guests":   rsvp.RSVPGuests,
 	}).Info("Updating rsvp")
 
 	updatedRSVP, err := utils.RunWithTransaction(func(tx *pg.Tx) (interface{}, error) {

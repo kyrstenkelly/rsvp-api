@@ -32,7 +32,9 @@ func NewEventsDAO() EventsAccess {
 // GetEvents gets all events
 func (a *EventsPostgresAccess) GetEvents(tx *pg.Tx) ([]models.Event, error) {
 	var events []models.Event
-	err := tx.Model(&events).Select()
+	err := tx.Model(&events).
+		Column("event.*", "Address").
+		Select()
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -43,7 +45,11 @@ func (a *EventsPostgresAccess) GetEvents(tx *pg.Tx) ([]models.Event, error) {
 // GetEvent gets an event by id
 func (a *EventsPostgresAccess) GetEvent(tx *pg.Tx, id int64) (*models.Event, error) {
 	event := new(models.Event)
-	err := tx.Model(event).Where("event.id = ?", id).Select()
+	err := tx.Model(event).
+		Column("event.*", "Address").
+		Where("event.id = ?", id).
+		Select()
+
 	if err == pg.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -55,17 +61,18 @@ func (a *EventsPostgresAccess) GetEvent(tx *pg.Tx, id int64) (*models.Event, err
 
 // CreateEvent creates an event
 func (a *EventsPostgresAccess) CreateEvent(tx *pg.Tx, event *models.Event) (*models.Event, error) {
-	address, err := a.addressAccess.CreateAddress(tx, event.Address)
+	address, err := a.addressAccess.FindOrCreateAddress(tx, event.Address)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
+	event.AddressID = address.ID
 
 	query :=
 		`INSERT INTO
-			events ("name", "address_id")
+			events ("name", "location", "address_id", "food_options", "date")
 		VALUES
-			($1, $2)
+			($1, $2, $3, $4, $5)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -74,13 +81,12 @@ func (a *EventsPostgresAccess) CreateEvent(tx *pg.Tx, event *models.Event) (*mod
 	}
 
 	var eventID int64
-	_, err = stmt.Query(pg.Scan(&eventID), &event.Name, &address.ID)
+	_, err = stmt.Query(pg.Scan(&eventID), &event.Name, &event.Location, &event.AddressID, &event.FoodOptions, &event.Date)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 	event.ID = eventID
-	event.AddressID = address.ID
 
 	return event, nil
 }
@@ -91,8 +97,19 @@ func (a *EventsPostgresAccess) UpdateEvent(tx *pg.Tx, event *models.Event) (*mod
 	if event.Name != "" {
 		q = append(q, "name = ?name")
 	}
-	if event.AddressID > 0 {
-		q = append(q, "address_id = ?address_id")
+	if event.Location != "" {
+		q = append(q, "location = ?location")
+	}
+	if event.Address != nil {
+		_, err := a.addressAccess.FindOrCreateAddress(tx, event.Address)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		q = append(q, "address = ?address")
+	}
+	if event.FoodOptions != nil {
+		q = append(q, "food_options = ?food_options")
 	}
 
 	qString := strings.Join(q, ", ")

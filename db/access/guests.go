@@ -9,53 +9,38 @@ import (
 
 // GuestsPostgresAccess postgres implementation of a CohortsDAO
 type GuestsPostgresAccess struct {
-	addressAccess AddressesAccess
 }
 
 // GuestsAccess interface for a Cohorts data access object
 type GuestsAccess interface {
-	GetGuests(tx *pg.Tx) ([]models.Guest, error)
+	// TODO: Get guests by invitation ID
+	GetGuests(tx *pg.Tx, ids []int64) ([]models.Guest, error)
 	GetGuest(tx *pg.Tx, id int64) (*models.Guest, error)
-	GetGuestByRSVPCode(tx *pg.Tx, rsvpCode string) (*models.Guest, error)
-	CreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
+	GetGuestByName(tx *pg.Tx, name string) (*models.Guest, error)
+	FindOrCreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
 	UpdateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
 	DeleteGuest(tx *pg.Tx, id int64) (*models.Guest, error)
 }
 
 // NewGuestsDAO Create a new guests dao
 func NewGuestsDAO() GuestsAccess {
-	addressesDAO := NewAddressesDAO()
-	return &GuestsPostgresAccess{
-		addressAccess: addressesDAO,
-	}
-}
-
-func _findGuestAddress(guest models.Guest, addresses []models.Address) *models.Address {
-	log.WithFields(log.Fields{
-		"address_ID": guest.AddressID,
-		"guest":      guest,
-		"addresses":  addresses,
-	}).Debug("Searching for guest address")
-	for _, address := range addresses {
-		if address.ID == guest.AddressID {
-			return &address
-		}
-	}
-	return nil
+	return &GuestsPostgresAccess{}
 }
 
 // GetGuests gets all guests
-func (a *GuestsPostgresAccess) GetGuests(tx *pg.Tx) ([]models.Guest, error) {
+func (a *GuestsPostgresAccess) GetGuests(tx *pg.Tx, ids []int64) ([]models.Guest, error) {
 	var guests []models.Guest
-	addresses, err := a.addressAccess.GetAddresses(tx)
-	err = tx.Model(&guests).Select()
+	var err error
+	if ids == nil {
+		err = tx.Model(&guests).Select()
+	} else {
+		err = tx.Model(&guests).
+			Where("id in (?)", pg.In(ids)).
+			Select()
+	}
 	if err != nil {
 		log.Error(err)
 		return nil, err
-	}
-	for i, guest := range guests {
-		guest.Address = _findGuestAddress(guest, addresses)
-		guests[i] = guest
 	}
 	return guests, nil
 }
@@ -73,10 +58,10 @@ func (a *GuestsPostgresAccess) GetGuest(tx *pg.Tx, id int64) (*models.Guest, err
 	return guest, nil
 }
 
-// GetGuestByRSVPCode get a guest by RSVP code
-func (a *GuestsPostgresAccess) GetGuestByRSVPCode(tx *pg.Tx, rsvpCode string) (*models.Guest, error) {
+// GetGuestByName gets a guest by name
+func (a *GuestsPostgresAccess) GetGuestByName(tx *pg.Tx, name string) (*models.Guest, error) {
 	guest := new(models.Guest)
-	err := tx.Model(guest).Where("guest.rsvp_code = ?", rsvpCode).Select()
+	err := tx.Model(guest).Where("guest.name = ?", name).First()
 	if err == pg.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -86,20 +71,20 @@ func (a *GuestsPostgresAccess) GetGuestByRSVPCode(tx *pg.Tx, rsvpCode string) (*
 	return guest, nil
 }
 
-// CreateGuest creates an guest
-func (a *GuestsPostgresAccess) CreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error) {
-	address, err := a.addressAccess.CreateAddress(tx, guest.Address)
+// FindOrCreateGuest finds or creates an guest
+func (a *GuestsPostgresAccess) FindOrCreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error) {
+	existingGuest, err := a.GetGuestByName(tx, guest.Name)
 	if err != nil {
-		log.Error(err)
 		return nil, err
 	}
-
-	// TODO: Generate dynamic RSVP code
+	if existingGuest != nil {
+		return existingGuest, nil
+	}
 	query :=
 		`INSERT INTO
-			guests ("first_name", "last_name", "email", "address_id")
+			guests ("name")
 		VALUES
-			($1, $2, $3, $4)
+			($1)
 		RETURNING id`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -108,13 +93,12 @@ func (a *GuestsPostgresAccess) CreateGuest(tx *pg.Tx, guest *models.Guest) (*mod
 	}
 
 	var guestID int64
-	_, err = stmt.Query(pg.Scan(&guestID), &guest.FirstName, &guest.LastName, &guest.Email, &address.ID)
+	_, err = stmt.Query(pg.Scan(&guestID), &guest.Name)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 	guest.ID = guestID
-	guest.AddressID = address.ID
 
 	return guest, nil
 }
@@ -122,17 +106,8 @@ func (a *GuestsPostgresAccess) CreateGuest(tx *pg.Tx, guest *models.Guest) (*mod
 // UpdateGuest updates an guest
 func (a *GuestsPostgresAccess) UpdateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error) {
 	var q []string
-	if guest.FirstName != "" {
-		q = append(q, "first_name = ?first_name")
-	}
-	if guest.LastName != "" {
-		q = append(q, "last_name = ?last_name")
-	}
-	if guest.Email != "" {
-		q = append(q, "email = ?email")
-	}
-	if guest.AddressID > 0 {
-		q = append(q, "address_id = ?address_id")
+	if guest.Name != "" {
+		q = append(q, "name = ?name")
 	}
 
 	qString := strings.Join(q, ", ")
