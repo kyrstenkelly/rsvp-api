@@ -32,19 +32,40 @@ func NewRSVPsDAO() RSVPsAccess {
 func (a *RSVPsPostgresAccess) GetRSVPs(tx *pg.Tx) ([]models.RSVP, error) {
 	var rsvps []models.RSVP
 	err := tx.Model(&rsvps).Select()
+
+	var rsvpsWithGuests []models.RSVP
+	for _, rsvp := range rsvps {
+		rsvpGuests, err := a.rsvpGuestAccess.GetRSVPGuests(tx, rsvp.ID)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		rsvp.RSVPGuests = rsvpGuests
+		rsvpsWithGuests = append(rsvpsWithGuests, rsvp)
+	}
+
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
-	return rsvps, nil
+	return rsvpsWithGuests, nil
 }
 
 // GetRSVP gets an rsvp by id
 func (a *RSVPsPostgresAccess) GetRSVP(tx *pg.Tx, id int64) (*models.RSVP, error) {
 	rsvp := new(models.RSVP)
 
-	// TODO: Join on rsvp_guests
-	err := tx.Model(rsvp).Where("rsvp.id = ?", id).Select()
+	err := tx.Model(rsvp).
+		Where("rsvp.id = ?", id).
+		Select()
+
+	rsvpGuests, err := a.rsvpGuestAccess.GetRSVPGuests(tx, rsvp.ID)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	rsvp.RSVPGuests = rsvpGuests
+
 	if err == pg.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -76,7 +97,7 @@ func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 	// Create and append RSVPGuests to the RSVP
 	var rsvpGuestIDs []int64
 	for _, rsvpGuest := range rsvp.RSVPGuests {
-		newRSVPGuest, err := a.rsvpGuestAccess.CreateRSVPGuest(tx, rsvpID, rsvpGuest)
+		newRSVPGuest, err := a.rsvpGuestAccess.CreateRSVPGuest(tx, rsvpID, &rsvpGuest)
 		if err != nil {
 			log.Error(err)
 			return nil, err
@@ -95,7 +116,7 @@ func (a *RSVPsPostgresAccess) CreateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 
 // UpdateRSVP updates an rsvp
 func (a *RSVPsPostgresAccess) UpdateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.RSVP, error) {
-	var updatedRSVPGuests []*models.RSVPGuest
+	var updatedRSVPGuests []models.RSVPGuest
 	log.Debug("about to update rsvp guests: ")
 	log.Debug(rsvp.RSVPGuests)
 	for _, rsvpGuest := range rsvp.RSVPGuests {
@@ -103,12 +124,12 @@ func (a *RSVPsPostgresAccess) UpdateRSVP(tx *pg.Tx, rsvp *models.RSVP) (*models.
 			"foodChoice": rsvpGuest.FoodChoice,
 			"guest":      rsvpGuest.Guest,
 		}).Info("about to update rsvp guest")
-		updated, err := a.rsvpGuestAccess.UpdateRSVPGuest(tx, rsvpGuest)
+		updated, err := a.rsvpGuestAccess.UpdateRSVPGuest(tx, &rsvpGuest)
 		if err != nil {
 			log.Error(err)
 			return nil, err
 		}
-		updatedRSVPGuests = append(updatedRSVPGuests, updated)
+		updatedRSVPGuests = append(updatedRSVPGuests, *updated)
 	}
 	rsvp.RSVPGuests = updatedRSVPGuests
 	return rsvp, nil

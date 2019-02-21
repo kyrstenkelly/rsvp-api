@@ -28,7 +28,7 @@ func (handler *GuestsHandler) GetGuestsHandler(r *http.Request, vars map[string]
 
 	var guests []models.Guest
 	err := conn.RunInTransaction(func(tx *pg.Tx) (err error) {
-		guests, err = handler.dao.GetGuests(tx)
+		guests, err = handler.dao.GetGuests(tx, nil)
 		return err
 	})
 	if err != nil {

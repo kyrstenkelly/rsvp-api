@@ -14,7 +14,7 @@ type GuestsPostgresAccess struct {
 // GuestsAccess interface for a Cohorts data access object
 type GuestsAccess interface {
 	// TODO: Get guests by invitation ID
-	GetGuests(tx *pg.Tx) ([]models.Guest, error)
+	GetGuests(tx *pg.Tx, ids []int64) ([]models.Guest, error)
 	GetGuest(tx *pg.Tx, id int64) (*models.Guest, error)
 	GetGuestByName(tx *pg.Tx, name string) (*models.Guest, error)
 	FindOrCreateGuest(tx *pg.Tx, guest *models.Guest) (*models.Guest, error)
@@ -28,9 +28,16 @@ func NewGuestsDAO() GuestsAccess {
 }
 
 // GetGuests gets all guests
-func (a *GuestsPostgresAccess) GetGuests(tx *pg.Tx) ([]models.Guest, error) {
+func (a *GuestsPostgresAccess) GetGuests(tx *pg.Tx, ids []int64) ([]models.Guest, error) {
 	var guests []models.Guest
-	err := tx.Model(&guests).Select()
+	var err error
+	if ids == nil {
+		err = tx.Model(&guests).Select()
+	} else {
+		err = tx.Model(&guests).
+			Where("id in (?)", pg.In(ids)).
+			Select()
+	}
 	if err != nil {
 		log.Error(err)
 		return nil, err

@@ -32,10 +32,13 @@ func NewRSVPGuestsDAO() RSVPGuestsAccess {
 }
 
 // GetRSVPGuests gets all rsvps
-func (a *RSVPGuestsPostgresAccess) GetRSVPGuests(tx *pg.Tx, invitationID int64) ([]models.RSVPGuest, error) {
+func (a *RSVPGuestsPostgresAccess) GetRSVPGuests(tx *pg.Tx, rsvpID int64) ([]models.RSVPGuest, error) {
 	var rsvpGuests []models.RSVPGuest
 	// TODO: Use invitation ID to get guests
-	err := tx.Model(&rsvpGuests).Select()
+	err := tx.Model(&rsvpGuests).
+		Column("rsvp_guest.*", "Guest").
+		Where("rsvp_guest.rsvp_id = ?", rsvpID).
+		Select()
 	if err != nil {
 		log.Error(err)
 		return nil, err

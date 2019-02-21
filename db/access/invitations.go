@@ -39,11 +39,22 @@ func (a *InvitationsPostgresAccess) GetInvitations(tx *pg.Tx) ([]models.Invitati
 		Column("invitation.*", "Address", "Event").
 		Select()
 
+	var invitationsWithGuests []models.Invitation
+	for _, invitation := range invitations {
+		guests, err := a.guestAccess.GetGuests(tx, invitation.GuestIds)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		invitation.Guests = &guests
+		invitationsWithGuests = append(invitationsWithGuests, invitation)
+	}
+
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
-	return invitations, nil
+	return invitationsWithGuests, nil
 }
 
 // GetInvitation gets a invitation by id
