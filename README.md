@@ -23,7 +23,7 @@ $ ./rsvp-api
 
 ## Documentation
 
-### [API Docs](./docs/API.md)
+### [API Docs](./docs/api.md)
 ### [Database Structure](./docs/database.md)
 
 ## Testing
