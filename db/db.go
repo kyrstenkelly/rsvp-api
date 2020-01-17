@@ -1,9 +1,9 @@
 package db
 
 import (
-	"github.com/go-pg/migrations"
-	"github.com/go-pg/pg"
-	"github.com/go-pg/pg/orm"
+	"github.com/go-pg/migrations/v7"
+	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v9/orm"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/kyrstenkelly/rsvp-api/db/models"
 	log "github.com/sirupsen/logrus"
@@ -54,10 +54,7 @@ func InitDb() error {
 
 	var oldVersion, newVersion int64
 	err = createSchema(conn)
-	err = conn.RunInTransaction(func(tx *pg.Tx) (err error) {
-		oldVersion, newVersion, err = migrations.RunMigrations(tx, migrations.RegisteredMigrations())
-		return err
-	})
+	oldVersion, newVersion, err = migrations.Run(conn)
 	if err != nil {
 		log.Error("Unable to run database migrations")
 		return err

@@ -3,7 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/v9"
 	"github.com/gorilla/mux"
 	"github.com/kyrstenkelly/rsvp-api/db"
 	log "github.com/sirupsen/logrus"

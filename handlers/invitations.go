@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/v9"
 	"github.com/kyrstenkelly/rsvp-api/db"
 	"github.com/kyrstenkelly/rsvp-api/db/access"
 	"github.com/kyrstenkelly/rsvp-api/db/models"

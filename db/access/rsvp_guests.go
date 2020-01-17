@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/v9"
 	"github.com/kyrstenkelly/rsvp-api/db/models"
 	log "github.com/sirupsen/logrus"
 )
